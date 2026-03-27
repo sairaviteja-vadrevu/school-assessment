@@ -132,7 +132,7 @@ const Sidebar = ({ user, onLogout, isOpen, onClose }) => {
                 }}
               >
                 <Icon size={18} style={{ flexShrink: 0 }} />
-                <span>{item.label}</span>
+                <span style={{ whiteSpace: 'nowrap' }}>{item.label}</span>
               </div>
             );
           })}

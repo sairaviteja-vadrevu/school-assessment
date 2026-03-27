@@ -178,7 +178,7 @@ const ManageUsers = () => {
 
   const fetchUsers = async () => {
     try {
-      const data = await api.get('/teachers');
+      const data = await api.get('/admin/users');
       setUsers(data || []);
     } catch (err) {
       console.error('Failed to load users:', err);
@@ -223,7 +223,7 @@ const ManageUsers = () => {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  {['Name', 'Email', 'Subject', 'Classes', 'Phone'].map((h) => (
+                  {['Name', 'Email', 'Role', 'Subject', 'Classes', 'Phone'].map((h) => (
                     <th key={h} style={{
                       textAlign: 'left', padding: '12px 16px', fontSize: '12px', fontWeight: 600,
                       color: 'var(--color-text-secondary)', textTransform: 'uppercase',
@@ -248,6 +248,9 @@ const ManageUsers = () => {
                       </div>
                     </td>
                     <td style={{ padding: '14px 16px', fontSize: '14px', color: 'var(--color-text-secondary)' }}>{u.email}</td>
+                    <td style={{ padding: '14px 16px' }}>
+                      <Badge variant={u.role === 'admin' ? 'primary' : 'default'}>{u.role}</Badge>
+                    </td>
                     <td style={{ padding: '14px 16px', fontSize: '14px', color: 'var(--color-text-secondary)' }}>{u.subject || '—'}</td>
                     <td style={{ padding: '14px 16px', fontSize: '14px', color: 'var(--color-text-secondary)' }}>{u.classes || '—'}</td>
                     <td style={{ padding: '14px 16px', fontSize: '14px', color: 'var(--color-text-secondary)' }}>{u.phone || '—'}</td>

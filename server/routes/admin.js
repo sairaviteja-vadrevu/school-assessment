@@ -111,4 +111,20 @@ router.get('/dashboard', verifyToken, adminOnly, (req, res) => {
   }
 });
 
+// GET /api/admin/users - Get all users (admins + teachers)
+router.get('/users', verifyToken, adminOnly, (req, res) => {
+  try {
+    const users = db.prepare(`
+      SELECT id, name, email, role, subject, phone, classes, responsibilities, created_at
+      FROM users
+      ORDER BY role ASC, name ASC
+    `).all();
+
+    return res.json(users);
+  } catch (error) {
+    console.error('Get users error:', error);
+    return res.status(500).json({ error: 'Failed to get users' });
+  }
+});
+
 export default router;
