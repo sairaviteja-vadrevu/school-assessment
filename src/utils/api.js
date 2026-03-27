@@ -1,10 +1,10 @@
-const API_BASE_URL = '/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 
 /**
  * Get JWT token from localStorage
  */
 const getToken = () => {
-  return localStorage.getItem('token');
+  return localStorage.getItem("token");
 };
 
 /**
@@ -12,9 +12,9 @@ const getToken = () => {
  */
 const setToken = (token) => {
   if (token) {
-    localStorage.setItem('token', token);
+    localStorage.setItem("token", token);
   } else {
-    localStorage.removeItem('token');
+    localStorage.removeItem("token");
   }
 };
 
@@ -26,7 +26,7 @@ const makeRequest = async (endpoint, options = {}) => {
   const token = getToken();
 
   const headers = {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
     ...options.headers,
   };
 
@@ -43,7 +43,7 @@ const makeRequest = async (endpoint, options = {}) => {
     // Handle 401 Unauthorized
     if (response.status === 401) {
       setToken(null);
-      window.location.href = '/login';
+      window.location.href = "/login";
       return null;
     }
 
@@ -62,7 +62,7 @@ const makeRequest = async (endpoint, options = {}) => {
 
     return await response.json();
   } catch (error) {
-    console.error('API Request Error:', error);
+    console.error("API Request Error:", error);
     throw error;
   }
 };
@@ -72,7 +72,7 @@ const makeRequest = async (endpoint, options = {}) => {
  */
 const get = (endpoint) => {
   return makeRequest(endpoint, {
-    method: 'GET',
+    method: "GET",
   });
 };
 
@@ -81,7 +81,7 @@ const get = (endpoint) => {
  */
 const post = (endpoint, data) => {
   return makeRequest(endpoint, {
-    method: 'POST',
+    method: "POST",
     body: JSON.stringify(data),
   });
 };
@@ -91,7 +91,7 @@ const post = (endpoint, data) => {
  */
 const put = (endpoint, data) => {
   return makeRequest(endpoint, {
-    method: 'PUT',
+    method: "PUT",
     body: JSON.stringify(data),
   });
 };
@@ -101,7 +101,7 @@ const put = (endpoint, data) => {
  */
 const del = (endpoint) => {
   return makeRequest(endpoint, {
-    method: 'DELETE',
+    method: "DELETE",
   });
 };
 
@@ -110,7 +110,7 @@ const del = (endpoint) => {
  */
 const patch = (endpoint, data) => {
   return makeRequest(endpoint, {
-    method: 'PATCH',
+    method: "PATCH",
     body: JSON.stringify(data),
   });
 };
