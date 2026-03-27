@@ -1,0 +1,221 @@
+@import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --color-primary: #1A1A2E;
+  --color-primary-light: #F4F4F6;
+  --color-accent: #22C55E;
+  --color-accent-light: #ECFDF5;
+
+  --color-background: #F5F5F7;
+  --color-surface: #FFFFFF;
+
+  --color-text: #1A1A2E;
+  --color-text-secondary: #6B7280;
+  --color-text-light: #9CA3AF;
+  --color-text-muted: #D1D5DB;
+
+  --color-success: #22C55E;
+  --color-warning: #F59E0B;
+  --color-danger: #EF4444;
+  --color-info: #3B82F6;
+
+  --color-border: #E5E7EB;
+  --color-border-light: #F3F4F6;
+
+  --font-family: 'Urbanist', sans-serif;
+  --font-mono: 'Urbanist', monospace;
+
+  --border-radius: 14px;
+  --border-radius-sm: 10px;
+  --border-radius-lg: 18px;
+  --border-radius-xl: 24px;
+
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.07), 0 2px 6px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.09), 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 2px 10px rgba(0, 0, 0, 0.04), 0 0 1px rgba(0, 0, 0, 0.06);
+
+  --transition: all 0.2s ease;
+  --transition-fast: all 0.15s ease;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-family);
+  background-color: var(--color-background);
+  color: var(--color-text);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--color-text);
+}
+
+h1 {
+  font-size: 32px;
+  margin-bottom: 24px;
+}
+
+h2 {
+  font-size: 24px;
+  margin-bottom: 16px;
+}
+
+h3 {
+  font-size: 20px;
+  margin-bottom: 12px;
+}
+
+h4 {
+  font-size: 16px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+p {
+  margin: 0 0 16px 0;
+}
+
+a {
+  color: var(--color-primary);
+  text-decoration: none;
+  transition: var(--transition-fast);
+}
+
+a:hover {
+  color: var(--color-accent);
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  background-color: var(--color-border-light);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--color-accent);
+}
+
+/* Form Elements Default */
+input, textarea, select, button {
+  font-family: var(--font-family);
+  font-size: 14px;
+}
+
+/* Utility Classes */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ─── RESPONSIVE ─────────────────────────────────────── */
+
+/* Tablet: <= 1024px */
+@media (max-width: 1024px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+  .sidebar.sidebar-open {
+    transform: translateX(0);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.15);
+  }
+  .sidebar-overlay {
+    display: block !important;
+  }
+  .sidebar-close-btn {
+    display: flex !important;
+  }
+  .main-content {
+    margin-left: 0 !important;
+  }
+  .hamburger-btn {
+    display: flex !important;
+  }
+  .app-header {
+    padding: 16px 20px !important;
+  }
+  .app-header h1 {
+    font-size: 20px !important;
+  }
+  .page-content {
+    padding: 20px !important;
+  }
+}
+
+/* Mobile: <= 640px */
+@media (max-width: 640px) {
+  .app-header {
+    padding: 14px 16px !important;
+  }
+  .app-header h1 {
+    font-size: 18px !important;
+  }
+  .page-content {
+    padding: 16px !important;
+  }
+  h1 { font-size: 24px; }
+  h2 { font-size: 20px; }
+  h3 { font-size: 17px; }
+}
+
+/* Login page responsive */
+@media (max-width: 768px) {
+  .login-container {
+    flex-direction: column !important;
+  }
+  .login-left {
+    padding: 40px 24px !important;
+    min-height: auto !important;
+    flex: none !important;
+  }
+}
+
+/* Dashboard and page grids responsive */
+@media (max-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  .chart-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
