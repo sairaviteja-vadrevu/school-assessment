@@ -46,7 +46,7 @@ const Button = ({
     },
     variants: {
       primary: {
-        backgroundColor: '#1A1A2E',
+        backgroundColor: '#004493',
         color: 'white',
       },
       primaryHover: {
@@ -54,7 +54,7 @@ const Button = ({
       },
       secondary: {
         backgroundColor: '#F4F4F6',
-        color: '#1A1A2E',
+        color: '#004493',
       },
       secondaryHover: {
         backgroundColor: '#E5E7EB',
@@ -75,7 +75,7 @@ const Button = ({
       },
       ghost: {
         backgroundColor: 'transparent',
-        color: '#1A1A2E',
+        color: '#004493',
         border: '1px solid var(--color-border)',
       },
       ghostHover: {

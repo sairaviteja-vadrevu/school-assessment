@@ -56,7 +56,7 @@ const MiniCalendar = () => {
             <div key={i} style={{
               fontSize: '14px', fontWeight: isToday ? 700 : 500,
               color: isToday ? 'white' : 'var(--color-text)',
-              backgroundColor: isToday ? '#1A1A2E' : 'transparent',
+              backgroundColor: isToday ? '#004493' : 'transparent',
               borderRadius: '10px', padding: '10px 0', cursor: 'pointer',
             }}>
               {date > 0 ? date : ''}
@@ -68,7 +68,7 @@ const MiniCalendar = () => {
   );
 };
 
-const TaskTable = ({ tasks, title, showAssignee }) => (
+const TaskTable = ({ tasks, title, showAssignee, onViewAll }) => (
   <Card>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
       <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--color-text)' }}>{title}</h3>
@@ -76,7 +76,7 @@ const TaskTable = ({ tasks, title, showAssignee }) => (
         <button style={{ background: 'none', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '6px 8px', cursor: 'pointer', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center' }}>
           <RefreshCw size={14} />
         </button>
-        <button style={{ background: 'none', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '6px 8px', cursor: 'pointer', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center' }}>
+        <button onClick={onViewAll} style={{ background: 'none', border: '1px solid var(--color-border)', borderRadius: '8px', padding: '6px 8px', cursor: 'pointer', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center' }}>
           <ArrowUpRight size={14} />
         </button>
       </div>
@@ -128,7 +128,7 @@ const buildTaskChartData = (tasks) => {
 
   return [
     { label: 'Pending', value: pending, color: '#D1D5DB' },
-    { label: 'In Progress', value: inProgress, color: '#1A1A2E' },
+    { label: 'In Progress', value: inProgress, color: '#004493' },
     { label: 'Completed', value: completed, color: '#9CA3AF' },
   ];
 };
@@ -181,7 +181,7 @@ const Dashboard = () => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
         {/* Welcome */}
         <div style={{
-          background: 'linear-gradient(135deg, #1A1A2E 0%, #2D2D44 100%)',
+          background: 'linear-gradient(135deg, #004493 0%, #2D2D44 100%)',
           borderRadius: '16px', padding: '28px 32px', color: 'white',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
@@ -221,7 +221,7 @@ const Dashboard = () => {
         </div>
 
         {/* My Tasks Table */}
-        <TaskTable tasks={tasks} title="My Tasks" showAssignee={false} />
+        <TaskTable tasks={tasks} title="My Tasks" showAssignee={false} onViewAll={() => navigate('/tasks')} />
       </div>
     );
   }
@@ -261,7 +261,7 @@ const Dashboard = () => {
       </div>
 
       {/* Recent Tasks Table */}
-      <TaskTable tasks={tasks} title="All Tasks" showAssignee={true} />
+      <TaskTable tasks={tasks} title="All Tasks" showAssignee={true} onViewAll={() => navigate('/tasks')} />
     </div>
   );
 };

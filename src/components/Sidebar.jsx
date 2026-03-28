@@ -1,4 +1,4 @@
-import React from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -19,16 +19,39 @@ import {
 const Sidebar = ({ user, onLogout, isOpen, onClose }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [collabUnread, setCollabUnread] = useState(0);
 
   const isAdmin = user?.role === 'admin';
+
+  // Poll for unread collaboration notifications
+  useEffect(() => {
+    const fetchUnread = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        const res = await fetch('/api/collaboration/notifications/unread', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setCollabUnread(data.total_unread || 0);
+        }
+      } catch (e) { /* ignore */ }
+    };
+    fetchUnread();
+    const interval = setInterval(fetchUnread, 20000);
+    return () => clearInterval(interval);
+  }, []);
 
   const commonItems = [
     { label: 'Dashboard', icon: LayoutDashboard, href: '/dashboard' },
     { label: 'Tasks', icon: CheckSquare, href: '/tasks' },
     { label: 'Collaboration', icon: MessageSquare, href: '/collaboration' },
+    { label: 'My Attendance', icon: CalendarCheck, href: '/attendance/teachers' },
     { label: 'Student Attendance', icon: CalendarDays, href: '/attendance/students' },
     { label: 'Assessments', icon: ClipboardList, href: '/assessments' },
     { label: 'Campaigns', icon: MapPin, href: '/campaigns' },
+    { label: 'Classes & Students', icon: GraduationCap, href: '/manage-classes' },
   ];
 
   const allItems = isAdmin
@@ -87,7 +110,7 @@ const Sidebar = ({ user, onLogout, isOpen, onClose }) => {
           >
             <div style={{
               width: '34px', height: '34px', borderRadius: '10px',
-              backgroundColor: '#1A1A2E', display: 'flex', alignItems: 'center',
+              backgroundColor: '#004493', display: 'flex', alignItems: 'center',
               justifyContent: 'center', color: 'white', fontSize: '16px', fontWeight: 800,
             }}>B</div>
             <span style={{ fontSize: '18px', fontWeight: 800, color: 'var(--color-text)', whiteSpace: 'nowrap' }}>
@@ -133,7 +156,13 @@ const Sidebar = ({ user, onLogout, isOpen, onClose }) => {
                 }}
               >
                 <Icon size={18} style={{ flexShrink: 0 }} />
-                <span style={{ whiteSpace: 'nowrap' }}>{item.label}</span>
+                <span style={{ whiteSpace: 'nowrap', flex: 1 }}>{item.label}</span>
+                {item.label === 'Collaboration' && collabUnread > 0 && (
+                  <span style={{
+                    backgroundColor: '#DC2626', color: 'white', fontSize: '10px',
+                    fontWeight: 700, padding: '2px 7px', borderRadius: '10px', flexShrink: 0,
+                  }}>{collabUnread}</span>
+                )}
               </div>
             );
           })}
@@ -148,7 +177,7 @@ const Sidebar = ({ user, onLogout, isOpen, onClose }) => {
             style={{
               display: 'flex', alignItems: 'center', gap: '12px',
               padding: '10px 16px', color: 'var(--color-text-secondary)',
-              fontSize: '13px', fontFamily: "'Urbanist', sans-serif", fontWeight: 500,
+              fontSize: '13px', fontFamily: "'Manrope', sans-serif", fontWeight: 500,
               cursor: 'pointer', transition: 'var(--transition-fast)',
               backgroundColor: 'transparent', border: 'none', textAlign: 'left', width: '100%',
             }}

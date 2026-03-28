@@ -43,6 +43,22 @@ router.get('/', verifyToken, (req, res) => {
       params.push(exam_type);
     }
 
+    // Teachers only see assessments for their assigned classes
+    if (req.user.role === 'teacher' && !classId) {
+      const user = db.prepare('SELECT classes FROM users WHERE id = ?').get(req.user.id);
+      if (user?.classes) {
+        const assignedNames = user.classes.split(',').map(c => c.trim().toLowerCase());
+        const classIds = db.prepare('SELECT id FROM student_classes').all()
+          .filter(c => {
+            const cls = db.prepare('SELECT name FROM student_classes WHERE id = ?').get(c.id);
+            return assignedNames.includes(cls.name.toLowerCase());
+          }).map(c => c.id);
+        if (classIds.length > 0) {
+          query += ` AND s.class_id IN (${classIds.join(',')})`;
+        }
+      }
+    }
+
     query += ' ORDER BY a.date DESC, s.name ASC';
 
     const assessments = db.prepare(query).all(...params);
@@ -134,6 +150,17 @@ router.delete('/:id', verifyToken, (req, res) => {
   } catch (error) {
     console.error('Delete assessment error:', error);
     return res.status(500).json({ error: 'Failed to delete assessment' });
+  }
+});
+
+// GET /api/assessments/exam-types - Get all distinct exam types used
+router.get('/exam-types', verifyToken, (req, res) => {
+  try {
+    const types = db.prepare('SELECT DISTINCT exam_type FROM assessments ORDER BY exam_type ASC').all();
+    return res.json(types.map(t => t.exam_type));
+  } catch (error) {
+    console.error('Get exam types error:', error);
+    return res.status(500).json({ error: 'Failed to get exam types' });
   }
 });
 

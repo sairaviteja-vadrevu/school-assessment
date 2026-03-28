@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Check, X, Clock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Button, Card, Table, Input, Select, Badge } from '../components';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 
 const StudentAttendance = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [classes, setClasses] = useState([]);
   const [selectedClass, setSelectedClass] = useState(null);
   const [selectedDate, setSelectedDate] = useState(
@@ -313,8 +315,18 @@ const StudentAttendance = () => {
 
       {students.length === 0 ? (
         <Card>
-          <div style={{ textAlign: 'center', padding: '24px', color: 'var(--color-text-light)' }}>
-            No students found for this class
+          <div style={{ textAlign: 'center', padding: '32px', color: 'var(--color-text-light)' }}>
+            <p style={{ margin: '0 0 12px', fontSize: '14px' }}>No students found for this class</p>
+            <button
+              onClick={() => navigate('/manage-classes')}
+              style={{
+                padding: '8px 20px', backgroundColor: '#004493', color: 'white',
+                border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+                cursor: 'pointer', fontFamily: 'var(--font-family)',
+              }}
+            >
+              Add Students
+            </button>
           </div>
         </Card>
       ) : (

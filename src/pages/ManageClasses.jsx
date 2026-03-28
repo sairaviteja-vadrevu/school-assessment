@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Edit2, Trash2, X, Users, GraduationCap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 
 const ManageClasses = () => {
   const { isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [classes, setClasses] = useState([]);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -153,7 +155,7 @@ const ManageClasses = () => {
             onClick={() => { resetClassForm(); setIsEditMode(false); setIsClassModalOpen(true); }}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px',
-              backgroundColor: '#1A1A2E', color: 'white', border: 'none', borderRadius: '10px',
+              backgroundColor: '#004493', color: 'white', border: 'none', borderRadius: '10px',
               fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-family)',
             }}
           >
@@ -196,7 +198,7 @@ const ManageClasses = () => {
                     onClick={() => setSelectedClass(cls)}
                     style={{
                       padding: '14px 20px', cursor: 'pointer',
-                      backgroundColor: isSelected ? '#1A1A2E' : 'transparent',
+                      backgroundColor: isSelected ? '#004493' : 'transparent',
                       color: isSelected ? 'white' : 'var(--color-text)',
                       borderBottom: '1px solid var(--color-border-light)',
                       transition: 'all 0.15s ease',
@@ -249,7 +251,7 @@ const ManageClasses = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div style={{
                     width: '36px', height: '36px', borderRadius: '10px',
-                    backgroundColor: '#1A1A2E', display: 'flex', alignItems: 'center',
+                    backgroundColor: '#004493', display: 'flex', alignItems: 'center',
                     justifyContent: 'center', color: 'white', fontSize: '14px', fontWeight: 800,
                   }}>
                     {selectedClass.name?.substring(0, 2)}
@@ -266,30 +268,28 @@ const ManageClasses = () => {
                 </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {isAdmin && (
-                    <>
-                      <button
-                        onClick={() => handleEditClass(selectedClass)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px',
-                          backgroundColor: 'var(--color-border-light)', color: 'var(--color-text)',
-                          border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
-                          cursor: 'pointer', fontFamily: 'var(--font-family)',
-                        }}
-                      >
-                        <Edit2 size={13} /> Edit
-                      </button>
-                      <button
-                        onClick={() => { resetStudentForm(); setIsStudentModalOpen(true); }}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px',
-                          backgroundColor: '#1A1A2E', color: 'white', border: 'none', borderRadius: '8px',
-                          fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-family)',
-                        }}
-                      >
-                        <Plus size={13} /> Add Student
-                      </button>
-                    </>
+                    <button
+                      onClick={() => handleEditClass(selectedClass)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px',
+                        backgroundColor: 'var(--color-border-light)', color: 'var(--color-text)',
+                        border: 'none', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+                        cursor: 'pointer', fontFamily: 'var(--font-family)',
+                      }}
+                    >
+                      <Edit2 size={13} /> Edit
+                    </button>
                   )}
+                  <button
+                    onClick={() => { resetStudentForm(); setIsStudentModalOpen(true); }}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px',
+                      backgroundColor: '#004493', color: 'white', border: 'none', borderRadius: '8px',
+                      fontSize: '13px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-family)',
+                    }}
+                  >
+                    <Plus size={13} /> Add Student
+                  </button>
                 </div>
               </div>
 
@@ -334,7 +334,10 @@ const ManageClasses = () => {
                               }}>
                                 {student.name?.substring(0, 2).toUpperCase()}
                               </div>
-                              <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-text)' }}>{student.name}</span>
+                              <span onClick={() => navigate(`/student/${student.id}`)} style={{ fontSize: '14px', fontWeight: 500, color: '#004493', cursor: 'pointer', textDecoration: 'none' }}
+                                onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+                              >{student.name}</span>
                             </div>
                           </td>
                           {isAdmin && (
@@ -401,7 +404,7 @@ const ManageClasses = () => {
                   border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-family)',
                 }}>Cancel</button>
                 <button type="submit" disabled={isSubmitting} style={{
-                  padding: '10px 20px', backgroundColor: '#1A1A2E', color: 'white',
+                  padding: '10px 20px', backgroundColor: '#004493', color: 'white',
                   border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600,
                   cursor: isSubmitting ? 'wait' : 'pointer', fontFamily: 'var(--font-family)', opacity: isSubmitting ? 0.7 : 1,
                 }}>{isSubmitting ? 'Saving...' : (isEditMode ? 'Save Changes' : 'Create Class')}</button>
@@ -441,7 +444,7 @@ const ManageClasses = () => {
                   border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-family)',
                 }}>Cancel</button>
                 <button type="submit" disabled={isSubmitting} style={{
-                  padding: '10px 20px', backgroundColor: '#1A1A2E', color: 'white',
+                  padding: '10px 20px', backgroundColor: '#004493', color: 'white',
                   border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600,
                   cursor: isSubmitting ? 'wait' : 'pointer', fontFamily: 'var(--font-family)', opacity: isSubmitting ? 0.7 : 1,
                 }}>{isSubmitting ? 'Saving...' : 'Add Student'}</button>

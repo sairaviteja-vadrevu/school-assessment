@@ -27,7 +27,7 @@ const TeacherCard = ({ teacher, isAdmin, onEdit, onView }) => (
     {/* Header */}
     <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
       <div style={{
-        width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#1A1A2E',
+        width: '48px', height: '48px', borderRadius: '50%', backgroundColor: '#004493',
         color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
         fontSize: '15px', fontWeight: 700, flexShrink: 0,
       }}>
@@ -204,7 +204,7 @@ const Teachers = () => {
           border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-family)',
         }}>Cancel</button>
         <button type="submit" disabled={isSubmitting} style={{
-          padding: '10px 20px', backgroundColor: '#1A1A2E', color: 'white',
+          padding: '10px 20px', backgroundColor: '#004493', color: 'white',
           border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600,
           cursor: isSubmitting ? 'wait' : 'pointer', fontFamily: 'var(--font-family)', opacity: isSubmitting ? 0.7 : 1,
         }}>{isSubmitting ? 'Saving...' : (isEditModalOpen ? 'Save Changes' : 'Add Teacher')}</button>
@@ -232,7 +232,7 @@ const Teachers = () => {
             onClick={() => { resetForm(); setSelectedTeacher(null); setIsModalOpen(true); }}
             style={{
               display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px',
-              backgroundColor: '#1A1A2E', color: 'white', border: 'none', borderRadius: '10px',
+              backgroundColor: '#004493', color: 'white', border: 'none', borderRadius: '10px',
               fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-family)',
             }}
           >
@@ -324,7 +324,7 @@ const Teachers = () => {
               <button onClick={() => setSelectedTeacher(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)' }}><X size={20} /></button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid var(--color-border-light)' }}>
-              <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#1A1A2E', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 700 }}>
+              <div style={{ width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#004493', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', fontWeight: 700 }}>
                 {selectedTeacher.name?.substring(0, 2).toUpperCase()}
               </div>
               <div>
@@ -340,7 +340,7 @@ const Teachers = () => {
             {isAdmin && (
               <div style={{ marginTop: '24px', paddingTop: '20px', borderTop: '1px solid var(--color-border-light)', display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
                 <button onClick={() => setSelectedTeacher(null)} style={{ padding: '10px 20px', backgroundColor: 'var(--color-border-light)', color: 'var(--color-text)', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-family)' }}>Close</button>
-                <button onClick={() => { const t = selectedTeacher; setSelectedTeacher(null); handleEdit(t); }} style={{ padding: '10px 20px', backgroundColor: '#1A1A2E', color: 'white', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-family)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button onClick={() => { const t = selectedTeacher; setSelectedTeacher(null); handleEdit(t); }} style={{ padding: '10px 20px', backgroundColor: '#004493', color: 'white', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-family)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Edit2 size={14} /> Edit
                 </button>
               </div>

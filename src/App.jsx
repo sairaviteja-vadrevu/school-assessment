@@ -13,6 +13,7 @@ import Campaigns from './pages/Campaigns';
 import AdminPanel from './pages/AdminPanel';
 import ManageUsers from './pages/ManageUsers';
 import ManageClasses from './pages/ManageClasses';
+import StudentProfile from './pages/StudentProfile';
 
 const ProtectedRoute = ({ children, adminOnly = false }) => {
   const { user, loading } = useAuth();
@@ -61,7 +62,7 @@ const AppRoutes = () => {
     '/manage-classes': 'Classes & Students',
   };
 
-  const adminPaths = ['/admin', '/manage-users', '/manage-classes'];
+  const adminPaths = ['/admin', '/manage-users'];
 
   const withLayout = (Component, path) => (
     <ProtectedRoute adminOnly={adminPaths.includes(path)}>
@@ -92,6 +93,13 @@ const AppRoutes = () => {
       <Route path="/admin" element={withLayout(AdminPanel, '/admin')} />
       <Route path="/manage-users" element={withLayout(ManageUsers, '/manage-users')} />
       <Route path="/manage-classes" element={withLayout(ManageClasses, '/manage-classes')} />
+      <Route path="/student/:id" element={
+        <ProtectedRoute>
+          <Layout pageTitle="Student Profile" user={user} onLogout={() => { logout(); window.location.href = '/login'; }}>
+            <StudentProfile />
+          </Layout>
+        </ProtectedRoute>
+      } />
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

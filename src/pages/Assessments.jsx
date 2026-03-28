@@ -151,7 +151,12 @@ const AssessmentRow = ({ record, onUpdated, onDeleted }) => {
 
   return (
     <tr>
-      <td style={tdStyle}>{record.student_name}</td>
+      <td style={tdStyle}>
+        <a href={`/student/${record.student_id}`} style={{ color: '#004493', textDecoration: 'none', fontWeight: 600 }}
+          onMouseEnter={(e) => { e.currentTarget.style.textDecoration = 'underline'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.textDecoration = 'none'; }}
+        >{record.student_name}</a>
+      </td>
       <td style={tdStyle}>
         {editing ? (
           <input
@@ -243,10 +248,11 @@ const AssessmentRow = ({ record, onUpdated, onDeleted }) => {
 };
 
 const Assessments = () => {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
-  const [examType, setExamType] = useState('midterm');
+  const [examType, setExamType] = useState('Midterm');
+  const [totalMarks, setTotalMarks] = useState(100);
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [students, setStudents] = useState([]);
@@ -258,9 +264,17 @@ const Assessments = () => {
   const [classAverage, setClassAverage] = useState(0);
   const [passRate, setPassRate] = useState(0);
   const [weakStudents, setWeakStudents] = useState([]);
+  const [studentFilter, setStudentFilter] = useState('');
+  const [examTypeOptions, setExamTypeOptions] = useState(['Midterm', 'Final', 'Quiz', 'Assignment', 'Unit Test', 'Half Yearly', 'Annual']);
 
   useEffect(() => {
     api.get('/classes').then((data) => setClasses(data || [])).catch((e) => console.error('Failed to fetch classes:', e));
+    // Fetch saved exam types and merge with defaults
+    api.get('/assessments/exam-types').then((data) => {
+      const defaults = ['Midterm', 'Final', 'Quiz', 'Assignment', 'Unit Test', 'Half Yearly', 'Annual'];
+      const all = [...new Set([...defaults, ...(data || [])])];
+      setExamTypeOptions(all);
+    }).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -302,18 +316,18 @@ const Assessments = () => {
   }, [selectedSubject]);
 
   useEffect(() => {
-    if (Object.keys(marks).length === 0) return;
-    const markValues = Object.values(marks).map((m) => parseFloat(m)).filter((m) => !isNaN(m));
-    if (markValues.length === 0) return;
-    const avg = (markValues.reduce((a, b) => a + b, 0) / markValues.length).toFixed(2);
-    const pass = ((markValues.filter((m) => m >= 40).length / markValues.length) * 100).toFixed(1);
+    const markValues = Object.values(marks).filter(v => v !== '' && v !== undefined).map(m => parseFloat(m)).filter(m => !isNaN(m) && m > 0);
+    if (markValues.length === 0) { setClassAverage(0); setPassRate(0); setWeakStudents([]); return; }
+    const percentages = markValues.map(m => (m / totalMarks) * 100);
+    const avg = (percentages.reduce((a, b) => a + b, 0) / percentages.length).toFixed(2);
+    const pass = ((percentages.filter((p) => p >= 40).length / percentages.length) * 100).toFixed(1);
     setClassAverage(avg);
     setPassRate(pass);
     setWeakStudents(students.filter((s) => {
       const m = parseFloat(marks[s.id]);
-      return !isNaN(m) && m < 40;
+      return !isNaN(m) && m > 0 && (m / totalMarks) * 100 < 40;
     }));
-  }, [marks, students]);
+  }, [marks, students, totalMarks]);
 
   const handleSubmitMarks = async () => {
     if (Object.keys(marks).length === 0) {
@@ -324,19 +338,26 @@ const Assessments = () => {
     try {
       await api.post('/assessments', {
         subject: selectedSubject,
-        total_marks: 100,
+        total_marks: totalMarks,
         exam_type: examType,
         date: new Date().toISOString().split('T')[0],
-        assessment_data: Object.entries(marks).map(([studentId, mark]) => ({
-          student_id: parseInt(studentId),
-          marks: parseFloat(mark),
-        })),
+        assessment_data: Object.entries(marks)
+          .filter(([, mark]) => mark !== '' && mark !== undefined && !isNaN(parseFloat(mark)) && parseFloat(mark) > 0)
+          .map(([studentId, mark]) => ({
+            student_id: parseInt(studentId),
+            marks: parseFloat(mark),
+          })),
       });
       setMarks({});
       setShowSubmitModal(false);
       alert('Marks submitted successfully');
-      const data = await api.get(`/assessments?class=${selectedClass}&subject=${selectedSubject}`);
-      setAssessments(data || []);
+      const [assessData, typesData] = await Promise.all([
+        api.get(`/assessments?class=${selectedClass}&subject=${selectedSubject}`),
+        api.get('/assessments/exam-types'),
+      ]);
+      setAssessments(assessData || []);
+      const defaults = ['Midterm', 'Final', 'Quiz', 'Assignment', 'Unit Test', 'Half Yearly', 'Annual'];
+      setExamTypeOptions([...new Set([...defaults, ...(typesData || [])])]);
     } catch (error) {
       console.error('Failed to submit marks:', error);
       alert('Failed to submit marks');
@@ -389,8 +410,19 @@ const Assessments = () => {
           value={examType}
           onChange={setExamType}
           placeholder="Select or type exam type"
-          options={['Midterm', 'Final', 'Quiz', 'Assignment', 'Unit Test', 'Half Yearly', 'Annual']}
+          options={examTypeOptions}
         />
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+          <label style={{ fontSize: '14px', fontWeight: 600, color: 'var(--color-text)' }}>Total Marks</label>
+          <select
+            value={totalMarks}
+            onChange={(e) => setTotalMarks(parseInt(e.target.value))}
+            style={{ padding: '10px 16px', fontSize: '14px', border: '1px solid var(--color-border)', borderRadius: 'var(--border-radius-sm)', backgroundColor: 'var(--color-surface)', color: 'var(--color-text)', cursor: 'pointer', appearance: 'none' }}
+          >
+            {[25, 50, 80, 100].map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+        </div>
       </div>
 
       {/* Performance Summary */}
@@ -444,7 +476,7 @@ const Assessments = () => {
                         Name
                       </th>
                       <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600 }}>
-                        Marks (out of 100)
+                        Marks (out of {totalMarks})
                       </th>
                       <th style={{ padding: '12px', textAlign: 'left', fontSize: '14px', fontWeight: 600 }}>
                         Grade
@@ -453,9 +485,12 @@ const Assessments = () => {
                   </thead>
                   <tbody>
                     {students.map((student) => {
-                      const mark = parseFloat(marks[student.id]) || 0;
-                      const grade = getGrade(mark);
-                      const isWeak = mark < 40 && mark > 0;
+                      const rawMark = marks[student.id];
+                      const mark = rawMark !== '' && rawMark !== undefined ? parseFloat(rawMark) : 0;
+                      const hasMark = rawMark !== '' && rawMark !== undefined && !isNaN(mark);
+                      const pct = hasMark && totalMarks > 0 ? (mark / totalMarks) * 100 : 0;
+                      const grade = getGrade(pct);
+                      const isWeak = hasMark && pct < 40 && mark > 0;
                       return (
                         <tr key={student.id} style={{ borderBottom: '1px solid var(--color-border-light)', ...(isWeak && weakStudentRowStyles) }}>
                           <td style={{ padding: '12px', fontSize: '14px' }}>{student.roll_number || '-'}</td>
@@ -464,18 +499,23 @@ const Assessments = () => {
                             <input
                               type="number"
                               min="0"
-                              max="100"
-                              value={marks[student.id] || ''}
+                              max={totalMarks}
+                              value={marks[student.id] ?? ''}
                               onChange={(e) => {
-                                const v = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
-                                setMarks((prev) => ({ ...prev, [student.id]: v }));
+                                const raw = e.target.value;
+                                if (raw === '') {
+                                  setMarks((prev) => ({ ...prev, [student.id]: '' }));
+                                } else {
+                                  const v = Math.max(0, Math.min(totalMarks, parseFloat(raw)));
+                                  setMarks((prev) => ({ ...prev, [student.id]: isNaN(v) ? '' : v }));
+                                }
                               }}
                               placeholder="0"
                               style={marksInputStyles}
                             />
                           </td>
                           <td style={{ padding: '12px' }}>
-                            {mark > 0 && <Badge variant={getGradeVariant(grade)}>{grade}</Badge>}
+                            {hasMark && mark > 0 && <Badge variant={getGradeVariant(grade)}>{grade}</Badge>}
                           </td>
                         </tr>
                       );
@@ -532,10 +572,19 @@ const Assessments = () => {
       {/* Existing Assessments */}
       {selectedClass && (
         <div style={sectionStyles}>
-          <h2 style={sectionTitleStyles}>
-            <TrendingUp size={20} />
-            Assessment History {selectedSubject ? `— ${selectedSubject}` : '(All Subjects)'}
-          </h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+            <h2 style={{ ...sectionTitleStyles, marginBottom: 0 }}>
+              <TrendingUp size={20} />
+              Assessment History {selectedSubject ? `— ${selectedSubject}` : '(All Subjects)'}
+            </h2>
+            <input
+              type="text"
+              placeholder="Filter by student name..."
+              value={studentFilter}
+              onChange={(e) => setStudentFilter(e.target.value)}
+              style={{ padding: '8px 14px', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '13px', fontFamily: 'var(--font-family)', color: 'var(--color-text)', outline: 'none', minWidth: '200px' }}
+            />
+          </div>
           {assessments.length === 0 ? (
             <Card>
               <div style={{ textAlign: 'center', padding: '32px', color: 'var(--color-text-light)' }}>
@@ -546,7 +595,9 @@ const Assessments = () => {
             <div style={assessmentTableContainerStyles}>
               {Object.entries(
                 assessments.reduce((groups, a) => {
-                  const key = `${a.exam_type || 'exam'}-${a.date || 'unknown'}`;
+                  // Filter by student name
+                  if (studentFilter && !a.student_name?.toLowerCase().includes(studentFilter.toLowerCase())) return groups;
+                  const key = `${a.exam_type || 'exam'}-${a.subject || ''}-${a.date || 'unknown'}`;
                   if (!groups[key]) groups[key] = { exam_type: a.exam_type, date: a.date, subject: a.subject, records: [] };
                   groups[key].records.push(a);
                   return groups;
@@ -559,7 +610,7 @@ const Assessments = () => {
                   <Card key={key} style={{ marginBottom: '16px' }}>
                     <div style={{ marginBottom: '12px' }}>
                       <h3 style={{ margin: '0 0 4px', fontSize: '15px', fontWeight: 700, color: 'var(--color-text)' }}>
-                        {(group.exam_type || 'Exam').toUpperCase()} — {group.subject || ''} — {group.date ? new Date(group.date).toLocaleDateString() : ''}
+                        <span style={{ textTransform: 'capitalize' }}>{group.exam_type || 'Exam'}</span> — {group.subject || ''} — {group.date ? new Date(group.date).toLocaleDateString() : ''}
                       </h3>
                       <div style={{ fontSize: '13px', color: 'var(--color-text-light)' }}>
                         Average: <strong>{avg.toFixed(1)}%</strong> | Pass Rate: <strong>{passRate.toFixed(1)}%</strong>

@@ -40,13 +40,13 @@ const Login = () => {
   ];
 
   return (
-    <div className="login-container" style={{ display: "flex", minHeight: "100vh", fontFamily: "'Urbanist', sans-serif" }}>
+    <div className="login-container" style={{ display: "flex", minHeight: "100vh", fontFamily: "'Manrope', sans-serif" }}>
       {/* Left Panel — Black & White with branding */}
       <div
         className="login-left"
         style={{
           flex: 1,
-          background: "#111111",
+          background: "#004493",
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
@@ -96,7 +96,7 @@ const Login = () => {
               boxShadow: "0 4px 24px rgba(255,255,255,0.1)",
             }}
           >
-            <span style={{ fontSize: "30px", fontWeight: 900, color: "#111" }}>B</span>
+            <span style={{ fontSize: "30px", fontWeight: 900, color: "#004493" }}>B</span>
           </div>
 
           <h1
@@ -171,7 +171,7 @@ const Login = () => {
               margin: "0 0 8px",
               fontSize: "28px",
               fontWeight: 800,
-              color: "#111",
+              color: "#004493",
             }}
           >
             Welcome back
@@ -201,7 +201,7 @@ const Login = () => {
                   display: "block",
                   fontSize: "13px",
                   fontWeight: 600,
-                  color: "#111",
+                  color: "#004493",
                   marginBottom: "8px",
                 }}
               >
@@ -220,7 +220,7 @@ const Login = () => {
                   boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
                 }}
                 onFocus={(e) => {
-                  e.currentTarget.style.borderColor = "#111";
+                  e.currentTarget.style.borderColor = "#004493";
                   e.currentTarget.style.boxShadow = "0 0 0 3px rgba(17,17,17,0.06)";
                 }}
                 onBlur={(e) => {
@@ -240,9 +240,9 @@ const Login = () => {
                     border: "none",
                     outline: "none",
                     fontSize: "15px",
-                    color: "#111",
+                    color: "#004493",
                     backgroundColor: "transparent",
-                    fontFamily: "'Urbanist', sans-serif",
+                    fontFamily: "'Manrope', sans-serif",
                   }}
                 />
               </div>
@@ -254,7 +254,7 @@ const Login = () => {
                   display: "block",
                   fontSize: "13px",
                   fontWeight: 600,
-                  color: "#111",
+                  color: "#004493",
                   marginBottom: "8px",
                 }}
               >
@@ -273,7 +273,7 @@ const Login = () => {
                   boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
                 }}
                 onFocus={(e) => {
-                  e.currentTarget.style.borderColor = "#111";
+                  e.currentTarget.style.borderColor = "#004493";
                   e.currentTarget.style.boxShadow = "0 0 0 3px rgba(17,17,17,0.06)";
                 }}
                 onBlur={(e) => {
@@ -293,9 +293,9 @@ const Login = () => {
                     border: "none",
                     outline: "none",
                     fontSize: "15px",
-                    color: "#111",
+                    color: "#004493",
                     backgroundColor: "transparent",
-                    fontFamily: "'Urbanist', sans-serif",
+                    fontFamily: "'Manrope', sans-serif",
                   }}
                 />
               </div>
@@ -307,7 +307,7 @@ const Login = () => {
               style={{
                 width: "100%",
                 padding: "15px 24px",
-                backgroundColor: "#111",
+                backgroundColor: "#004493",
                 color: "white",
                 border: "none",
                 borderRadius: "12px",
@@ -319,7 +319,7 @@ const Login = () => {
                 justifyContent: "center",
                 gap: "8px",
                 opacity: loading ? 0.7 : 1,
-                fontFamily: "'Urbanist', sans-serif",
+                fontFamily: "'Manrope', sans-serif",
                 transition: "all 0.2s ease",
                 boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
               }}
@@ -330,7 +330,7 @@ const Login = () => {
                 }
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = "#111";
+                e.currentTarget.style.backgroundColor = "#004493";
                 e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.12)";
               }}
             >

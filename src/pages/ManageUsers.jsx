@@ -30,7 +30,7 @@ const UserCard = ({ user, currentUser, onDelete }) => {
       <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
         <div style={{
           width: '48px', height: '48px', borderRadius: '50%',
-          backgroundColor: isAdmin ? '#7C3AED' : '#1A1A2E',
+          backgroundColor: isAdmin ? '#7C3AED' : '#004493',
           color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
           fontSize: '15px', fontWeight: 700, flexShrink: 0,
         }}>
@@ -214,7 +214,7 @@ const CreateAccountModal = ({ isOpen, onClose, onCreated }) => {
               border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-family)',
             }}>Cancel</button>
             <button type="submit" disabled={loading} style={{
-              flex: 1, padding: '12px', backgroundColor: '#1A1A2E', color: 'white', border: 'none', borderRadius: '10px',
+              flex: 1, padding: '12px', backgroundColor: '#004493', color: 'white', border: 'none', borderRadius: '10px',
               fontSize: '14px', fontWeight: 600, cursor: loading ? 'wait' : 'pointer', fontFamily: 'var(--font-family)', opacity: loading ? 0.7 : 1,
             }}>{loading ? 'Creating...' : 'Create Account'}</button>
           </div>
@@ -275,7 +275,7 @@ const ManageUsers = () => {
           onClick={() => setShowModal(true)}
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
-            padding: '10px 20px', backgroundColor: '#1A1A2E', color: 'white',
+            padding: '10px 20px', backgroundColor: '#004493', color: 'white',
             border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600,
             cursor: 'pointer', fontFamily: 'var(--font-family)',
           }}

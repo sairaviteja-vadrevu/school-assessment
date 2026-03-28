@@ -30,7 +30,7 @@ const Avatar = ({
     justifyContent: 'center',
     fontSize: fontSizes[size],
     fontWeight: 700,
-    backgroundColor: src ? 'transparent' : '#1A1A2E',
+    backgroundColor: src ? 'transparent' : '#004493',
     color: 'white',
     overflow: 'hidden',
     flexShrink: 0,

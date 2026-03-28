@@ -4,7 +4,7 @@ const BarChart = ({
   data = [],
   maxValue = 100,
   height = 200,
-  barColor = '#1A1A2E',
+  barColor = '#004493',
 }) => {
   const [animated, setAnimated] = useState(false);
 

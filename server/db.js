@@ -101,6 +101,34 @@ function initializeDatabase() {
     )
   `);
 
+  // Collaboration room members table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS collab_room_members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      room_id INTEGER NOT NULL,
+      user_id INTEGER NOT NULL,
+      joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(room_id) REFERENCES collab_rooms(id) ON DELETE CASCADE,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+      UNIQUE(room_id, user_id)
+    )
+  `);
+
+  // Collaboration notifications table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS collab_notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      room_id INTEGER NOT NULL,
+      message_id INTEGER NOT NULL,
+      is_read INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY(room_id) REFERENCES collab_rooms(id) ON DELETE CASCADE,
+      FOREIGN KEY(message_id) REFERENCES collab_messages(id) ON DELETE CASCADE
+    )
+  `);
+
   // Teacher attendance table
   db.exec(`
     CREATE TABLE IF NOT EXISTS teacher_attendance (
@@ -189,6 +217,30 @@ function initializeDatabase() {
   `);
 }
 
+function runMigrations() {
+  // Add live location columns to campaigns if they don't exist
+  const campaignCols = db.prepare("PRAGMA table_info(campaigns)").all().map(c => c.name);
+  if (!campaignCols.includes('live_lat')) {
+    db.exec('ALTER TABLE campaigns ADD COLUMN live_lat REAL');
+    db.exec('ALTER TABLE campaigns ADD COLUMN live_lng REAL');
+    db.exec('ALTER TABLE campaigns ADD COLUMN live_updated_at DATETIME');
+    console.log('Added live location columns to campaigns');
+  }
+
+  // Campaign location logs table
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS campaign_location_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      campaign_id INTEGER NOT NULL,
+      lat REAL NOT NULL,
+      lng REAL NOT NULL,
+      place_name TEXT,
+      logged_at TEXT NOT NULL,
+      FOREIGN KEY(campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE
+    )
+  `);
+}
+
 function seedDatabase() {
   // Check if data already exists
   const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
@@ -211,8 +263,9 @@ function getDatabase() {
   return db;
 }
 
-// Initialize and seed on load
+// Initialize, migrate, and seed on load
 initializeDatabase();
+runMigrations();
 seedDatabase();
 
 export default db;

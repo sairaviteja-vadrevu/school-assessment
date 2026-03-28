@@ -4,14 +4,26 @@ import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// GET /api/classes - Get all classes
+// GET /api/classes - Get classes (filtered by teacher's assigned classes for non-admins)
 router.get('/', verifyToken, (req, res) => {
   try {
-    const classes = db.prepare(`
-      SELECT id, name, section, grade
-      FROM student_classes
-      ORDER BY grade ASC, name ASC
+    let classes = db.prepare(`
+      SELECT sc.id, sc.name, sc.section, sc.grade,
+        (SELECT COUNT(*) FROM students WHERE class_id = sc.id) as studentCount
+      FROM student_classes sc
+      ORDER BY sc.grade ASC, sc.name ASC
     `).all();
+
+    // Teachers only see their assigned classes
+    if (req.user.role === 'teacher') {
+      const user = db.prepare('SELECT classes FROM users WHERE id = ?').get(req.user.id);
+      if (user?.classes) {
+        const assignedNames = user.classes.split(',').map(c => c.trim().toLowerCase());
+        const filtered = classes.filter(cls => assignedNames.includes(cls.name.toLowerCase()));
+        // If assigned classes exist in DB, return only those; otherwise return all as fallback
+        if (filtered.length > 0) classes = filtered;
+      }
+    }
 
     return res.json(classes);
   } catch (error) {

@@ -28,9 +28,9 @@ const Badge = ({ children, variant = 'neutral', className = '', style = {} }) =>
       borderColor: '#E5E7EB',
     },
     dark: {
-      backgroundColor: '#1A1A2E',
+      backgroundColor: '#004493',
       color: 'white',
-      borderColor: '#1A1A2E',
+      borderColor: '#004493',
     },
   };
 

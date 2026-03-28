@@ -23,8 +23,11 @@ router.post('/teacher/check-in', verifyToken, (req, res) => {
     }
 
     const checkInTime = new Date().toISOString();
-    const hour = new Date().getHours();
-    const status = hour > 9 ? 'late' : 'present';
+    const now = new Date();
+    const hour = now.getHours();
+    const minute = now.getMinutes();
+    // Late if check-in after 7:45 AM
+    const status = (hour > 7 || (hour === 7 && minute > 45)) ? 'late' : 'present';
 
     const result = db.prepare(`
       INSERT INTO teacher_attendance (user_id, date, check_in, status, location)
@@ -101,9 +104,11 @@ router.get('/teacher/today', verifyToken, (req, res) => {
 // GET /api/attendance/teacher/monthly - Get monthly stats for logged-in teacher
 router.get('/teacher/monthly', verifyToken, (req, res) => {
   try {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
+    // Use same date format as check-in (ISO date string) for consistency
+    const todayStr = new Date().toISOString().split('T')[0];
+    const year = parseInt(todayStr.substring(0, 4));
+    const month = todayStr.substring(5, 7);
+    const monthIndex = parseInt(month) - 1;
     const startDate = `${year}-${month}-01`;
     const endDate = `${year}-${month}-31`;
 
@@ -120,8 +125,8 @@ router.get('/teacher/monthly', verifyToken, (req, res) => {
     const onTimeDays = presentDays;
 
     // Build calendar
-    const daysInMonth = new Date(year, now.getMonth() + 1, 0).getDate();
-    const firstDay = new Date(year, now.getMonth(), 1).getDay();
+    const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+    const firstDay = new Date(year, monthIndex, 1).getDay();
     const calendar = [];
 
     // Add empty slots for days before the 1st

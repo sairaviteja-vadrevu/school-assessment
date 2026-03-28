@@ -1,29 +1,29 @@
-@import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  --color-primary: #1A1A2E;
-  --color-primary-light: #F4F4F6;
+  --color-primary: #004493;
+  --color-primary-light: #E8F0FE;
   --color-accent: #22C55E;
   --color-accent-light: #ECFDF5;
 
-  --color-background: #F5F5F7;
+  --color-background: #f3faff;
   --color-surface: #FFFFFF;
 
-  --color-text: #1A1A2E;
-  --color-text-secondary: #6B7280;
-  --color-text-light: #9CA3AF;
-  --color-text-muted: #D1D5DB;
+  --color-text: #004493;
+  --color-text-secondary: #5A7AA5;
+  --color-text-light: #8BA8C8;
+  --color-text-muted: #BDD0E4;
 
   --color-success: #22C55E;
   --color-warning: #F59E0B;
   --color-danger: #EF4444;
   --color-info: #3B82F6;
 
-  --color-border: #E5E7EB;
-  --color-border-light: #F3F4F6;
+  --color-border: #D6E4F0;
+  --color-border-light: #EAF2FA;
 
-  --font-family: 'Urbanist', sans-serif;
-  --font-mono: 'Urbanist', monospace;
+  --font-family: 'Manrope', sans-serif;
+  --font-mono: 'Manrope', monospace;
 
   --border-radius: 14px;
   --border-radius-sm: 10px;
