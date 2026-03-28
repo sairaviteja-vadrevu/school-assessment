@@ -28,6 +28,7 @@ const Sidebar = ({ user, onLogout, isOpen, onClose }) => {
     { label: 'Collaboration', icon: MessageSquare, href: '/collaboration' },
     { label: 'Student Attendance', icon: CalendarDays, href: '/attendance/students' },
     { label: 'Assessments', icon: ClipboardList, href: '/assessments' },
+    { label: 'Campaigns', icon: MapPin, href: '/campaigns' },
   ];
 
   const allItems = isAdmin

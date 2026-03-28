@@ -1,44 +1,32 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, MapPin, Calendar, Edit2, CheckCircle, Clock, AlertCircle } from 'lucide-react';
-import { Card, Button, Modal, Input, Textarea, Select, Badge, Table } from '../components';
+import { useState, useEffect } from 'react';
+import { Plus, MapPin, Calendar, Edit2, CheckCircle, Clock, AlertCircle, X, Users } from 'lucide-react';
+import { Card, Badge } from '../components';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
 
-// Helpers
 const getStatusVariant = (status) => {
   const variants = { completed: 'success', in_progress: 'info', planned: 'neutral' };
   return variants[status] || 'neutral';
 };
 
-const getStatusIcon = (status) => {
-  const icons = { completed: CheckCircle, in_progress: Clock, planned: AlertCircle };
-  const Icon = icons[status];
-  return Icon ? <Icon size={16} /> : null;
-};
-
 const Campaigns = () => {
   const { user, isAdmin } = useAuth();
   const [campaigns, setCampaigns] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [viewMode, setViewMode] = useState('list');
+  const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('');
-  const [showNewCampaignModal, setShowNewCampaignModal] = useState(false);
+  const [showNewModal, setShowNewModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState(null);
-  const [editFormData, setEditFormData] = useState({});
   const [submitting, setSubmitting] = useState(false);
-  const [newCampaignData, setNewCampaignData] = useState({ title: '', description: '', location: '', date: '', assignedTeacher: '', status: 'planned' });
   const [teachers, setTeachers] = useState([]);
+  const [formData, setFormData] = useState({ title: '', description: '', location: '', visit_date: '', assigned_to: '', status: 'planned', notes: '' });
 
   const fetchCampaigns = async () => {
-    setLoading(true);
     try {
       const data = await api.get('/campaigns');
       setCampaigns(data || []);
     } catch (error) {
       console.error('Failed to fetch campaigns:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -52,22 +40,24 @@ const Campaigns = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleCreateCampaign = async () => {
-    if (!newCampaignData.title || !newCampaignData.location || !newCampaignData.date) {
-      alert('Please fill in all required fields');
+  const resetForm = () => setFormData({ title: '', description: '', location: '', visit_date: '', assigned_to: '', status: 'planned', notes: '' });
+
+  const handleCreate = async () => {
+    if (!formData.title || !formData.location || !formData.visit_date) {
+      alert('Please fill in title, location, and date');
       return;
     }
     setSubmitting(true);
     try {
       await api.post('/campaigns', {
-        title: newCampaignData.title,
-        description: newCampaignData.description,
-        location: newCampaignData.location,
-        visit_date: newCampaignData.date,
-        assigned_to: newCampaignData.assignedTeacher || null,
+        title: formData.title,
+        description: formData.description,
+        location: formData.location,
+        visit_date: formData.visit_date,
+        assigned_to: formData.assigned_to || null,
       });
-      setNewCampaignData({ title: '', description: '', location: '', date: '', assignedTeacher: '', status: 'planned' });
-      setShowNewCampaignModal(false);
+      resetForm();
+      setShowNewModal(false);
       await fetchCampaigns();
     } catch (error) {
       console.error('Failed to create campaign:', error);
@@ -77,26 +67,35 @@ const Campaigns = () => {
     }
   };
 
-  const handleEditCampaign = (campaign) => {
+  const handleEdit = (campaign) => {
     setSelectedCampaign(campaign);
-    setEditFormData({ title: campaign.title, description: campaign.description, location: campaign.location, date: campaign.date, assignedTeacher: campaign.assignedTeacherId, status: campaign.status, notes: campaign.notes || '' });
+    setFormData({
+      title: campaign.title || '',
+      description: campaign.description || '',
+      location: campaign.location || '',
+      visit_date: campaign.visit_date || '',
+      assigned_to: campaign.assigned_to || '',
+      status: campaign.status || 'planned',
+      notes: campaign.notes || '',
+    });
     setShowEditModal(true);
   };
 
-  const handleUpdateCampaign = async () => {
+  const handleUpdate = async () => {
     setSubmitting(true);
     try {
       await api.put(`/campaigns/${selectedCampaign.id}`, {
-        title: editFormData.title,
-        description: editFormData.description,
-        location: editFormData.location,
-        visit_date: editFormData.date,
-        assigned_to: editFormData.assignedTeacher || null,
-        status: editFormData.status,
-        notes: editFormData.notes,
+        title: formData.title,
+        description: formData.description,
+        location: formData.location,
+        visit_date: formData.visit_date,
+        assigned_to: formData.assigned_to || null,
+        status: formData.status,
+        notes: formData.notes,
       });
       setShowEditModal(false);
       setSelectedCampaign(null);
+      resetForm();
       await fetchCampaigns();
     } catch (error) {
       console.error('Failed to update campaign:', error);
@@ -106,200 +105,238 @@ const Campaigns = () => {
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'Not set';
-    return new Date(dateString).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  const formatDate = (d) => {
+    if (!d) return 'Not set';
+    return new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
   const filteredCampaigns = filterStatus ? campaigns.filter((c) => c.status === filterStatus) : campaigns;
 
-  const containerStyles = { padding: '24px', width: '100%' };
-  const headerStyles = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' };
-  const titleStyles = { fontSize: '28px', fontWeight: 700, color: 'var(--color-text)', margin: 0 };
-  const controlsStyles = { display: 'flex', gap: '12px', alignItems: 'center' };
-  const filterStyles = { display: 'flex', gap: '16px', marginBottom: '24px', alignItems: 'center' };
-  const cardGridStyles = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px', marginBottom: '32px' };
-  const campaignCardStyles = { display: 'flex', flexDirection: 'column', height: '100%' };
-  const cardHeaderStyles = { marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid var(--color-border-light)' };
-  const campaignTitleStyles = { fontSize: '16px', fontWeight: 600, color: 'var(--color-text)', marginBottom: '8px' };
-  const detailStyles = { display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--color-text-light)', marginBottom: '8px' };
-  const descriptionStyles = { fontSize: '13px', color: 'var(--color-text-light)', marginBottom: '12px', flex: 1 };
-  const badgeContainerStyles = { display: 'flex', gap: '8px', marginBottom: '12px', flexWrap: 'wrap' };
-  const actionButtonsStyles = { display: 'flex', gap: '8px', marginTop: 'auto' };
+  const inputStyle = {
+    width: '100%', padding: '11px 14px', border: '1px solid var(--color-border)',
+    borderRadius: '10px', fontSize: '14px', fontFamily: 'var(--font-family)',
+    color: 'var(--color-text)', outline: 'none', backgroundColor: 'white',
+  };
+  const selectStyle = { ...inputStyle, cursor: 'pointer', appearance: 'none' };
+  const labelStyle = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--color-text)', marginBottom: '6px' };
+
+  const renderForm = (isEdit) => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <div>
+        <label style={labelStyle}>Campaign Title *</label>
+        <input style={inputStyle} placeholder="e.g. Environmental Awareness Drive" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} />
+      </div>
+      <div>
+        <label style={labelStyle}>Description</label>
+        <textarea style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }} placeholder="Campaign description..." value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div>
+          <label style={labelStyle}>Location *</label>
+          <input style={inputStyle} placeholder="Campaign location" value={formData.location} onChange={(e) => setFormData({ ...formData, location: e.target.value })} />
+        </div>
+        <div>
+          <label style={labelStyle}>Date *</label>
+          <input style={inputStyle} type="date" value={formData.visit_date} onChange={(e) => setFormData({ ...formData, visit_date: e.target.value })} />
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        <div>
+          <label style={labelStyle}>Assign Teacher</label>
+          <div style={{ position: 'relative' }}>
+            <select style={{ ...selectStyle, paddingRight: '36px' }} value={formData.assigned_to} onChange={(e) => setFormData({ ...formData, assigned_to: e.target.value })}>
+              <option value="">Select a teacher</option>
+              {teachers.map((t) => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+            <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--color-text-secondary)', fontSize: '12px' }}>&#9662;</div>
+          </div>
+        </div>
+        {isEdit && (
+          <div>
+            <label style={labelStyle}>Status</label>
+            <div style={{ position: 'relative' }}>
+              <select style={{ ...selectStyle, paddingRight: '36px' }} value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value })}>
+                <option value="planned">Planned</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+              </select>
+              <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--color-text-secondary)', fontSize: '12px' }}>&#9662;</div>
+            </div>
+          </div>
+        )}
+      </div>
+      {isEdit && (
+        <div>
+          <label style={labelStyle}>Notes</label>
+          <textarea style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }} placeholder="Add notes about the campaign..." value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} />
+        </div>
+      )}
+    </div>
+  );
+
+  if (loading) {
+    return <div style={{ textAlign: 'center', padding: '48px', color: 'var(--color-text-secondary)' }}>Loading campaigns...</div>;
+  }
 
   return (
-    <div style={containerStyles}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Header */}
-      <div style={headerStyles}>
-        <h1 style={titleStyles}>Campaigns</h1>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <p style={{ margin: '4px 0 0', fontSize: '14px', color: 'var(--color-text-secondary)' }}>
+            {campaigns.length} campaign{campaigns.length !== 1 ? 's' : ''}
+          </p>
+        </div>
         {isAdmin && (
-          <div style={controlsStyles}>
-            <Select
-              value={viewMode}
-              onChange={(e) => setViewMode(e.target.value)}
-              style={{ minWidth: '120px' }}
-            >
-              <option value="list">List View</option>
-              <option value="cards">Card View</option>
-            </Select>
-            <Button
-              icon={Plus}
-              onClick={() => setShowNewCampaignModal(true)}
-            >
-              New Campaign
-            </Button>
-          </div>
+          <button
+            onClick={() => { resetForm(); setShowNewModal(true); }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px', padding: '10px 20px',
+              backgroundColor: '#1A1A2E', color: 'white', border: 'none', borderRadius: '10px',
+              fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-family)',
+            }}
+          >
+            <Plus size={16} /> New Campaign
+          </button>
         )}
       </div>
 
       {/* Filter */}
-      <div style={filterStyles}>
-        <Select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          style={{ minWidth: '160px' }}
-        >
-          <option value="">All Status</option>
-          <option value="planned">Planned</option>
-          <option value="in_progress">In Progress</option>
-          <option value="completed">Completed</option>
-        </Select>
-        <span style={{ fontSize: '13px', color: 'var(--color-text-light)', whiteSpace: 'nowrap' }}>
-          Showing {filteredCampaigns.length} campaign{filteredCampaigns.length !== 1 ? 's' : ''}
-        </span>
+      <div style={{ display: 'flex', gap: '8px' }}>
+        {['', 'planned', 'in_progress', 'completed'].map((status) => (
+          <button
+            key={status}
+            onClick={() => setFilterStatus(status)}
+            style={{
+              padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+              border: '1px solid', cursor: 'pointer', fontFamily: 'var(--font-family)',
+              backgroundColor: filterStatus === status ? '#1A1A2E' : 'transparent',
+              color: filterStatus === status ? 'white' : 'var(--color-text)',
+              borderColor: filterStatus === status ? '#1A1A2E' : 'var(--color-border)',
+              transition: 'all 0.15s',
+            }}
+          >
+            {status === '' ? 'All' : status === 'in_progress' ? 'In Progress' : status.charAt(0).toUpperCase() + status.slice(1)}
+          </button>
+        ))}
       </div>
 
-      {/* Loading State */}
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '48px', color: 'var(--color-text-light)' }}>
-          Loading campaigns...
-        </div>
-      ) : filteredCampaigns.length === 0 ? (
-        <Card>
-          <div style={{ textAlign: 'center', padding: '48px', color: 'var(--color-text-light)' }}>
-            No campaigns found
-          </div>
-        </Card>
-      ) : viewMode === 'cards' ? (
-        // Card View
-        <div style={cardGridStyles}>
-          {filteredCampaigns.map((campaign) => (
-            <Card key={campaign.id} style={campaignCardStyles} hoverable>
-              <div style={cardHeaderStyles}>
-                <div style={campaignTitleStyles}>{campaign.title}</div>
-                <div style={badgeContainerStyles}>
-                  <Badge variant={getStatusVariant(campaign.status)}>
-                    {campaign.status.replace('_', ' ')}
-                  </Badge>
-                </div>
-              </div>
-              <p style={descriptionStyles}>{campaign.description}</p>
-              <div style={detailStyles}>
-                <MapPin size={14} />
-                {campaign.location}
-              </div>
-              <div style={detailStyles}>
-                <Calendar size={14} />
-                {formatDate(campaign.date)}
-              </div>
-              {campaign.assignedTeacherName && (
-                <div style={detailStyles}>
-                  <strong>Teacher:</strong> {campaign.assignedTeacherName}
-                </div>
-              )}
-              {campaign.notes && (
-                <div style={{ fontSize: '13px', fontStyle: 'italic', color: 'var(--color-text-light)', marginBottom: '12px' }}>
-                  Notes: {campaign.notes.substring(0, 50)}...
-                </div>
-              )}
-              {isAdmin && (
-                <div style={actionButtonsStyles}>
-                  <Button size="sm" variant="ghost" icon={Edit2} onClick={() => handleEditCampaign(campaign)}>
-                    Edit
-                  </Button>
-                </div>
-              )}
-            </Card>
-          ))}
+      {/* Campaign Cards */}
+      {filteredCampaigns.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '48px', color: 'var(--color-text-secondary)', fontSize: '14px' }}>
+          No campaigns found.
         </div>
       ) : (
-        // List View
-        <Card>
-          <Table
-            columns={[
-              { key: 'title', label: 'Title' },
-              { key: 'location', label: 'Location' },
-              { key: 'date', label: 'Date', render: (date) => formatDate(date) },
-              { key: 'assignedTeacherName', label: 'Assigned Teacher', render: (name) => name || '-' },
-              { key: 'status', label: 'Status', render: (status) => <Badge variant={getStatusVariant(status)}>{status.replace('_', ' ')}</Badge> },
-              { key: 'id', label: 'Actions', sortable: false, render: (id, row) => <Button size="sm" variant="ghost" icon={Edit2} onClick={() => handleEditCampaign(row)}>Edit</Button> },
-            ]}
-            data={filteredCampaigns}
-            sortable
-          />
-        </Card>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '20px' }}>
+          {filteredCampaigns.map((campaign) => (
+            <div
+              key={campaign.id}
+              style={{
+                backgroundColor: 'var(--color-surface)', borderRadius: '14px',
+                border: '1px solid var(--color-border)', padding: '24px',
+                display: 'flex', flexDirection: 'column', transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.boxShadow = 'var(--shadow-md)'; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'translateY(0)'; }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '12px' }}>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: 'var(--color-text)', flex: 1 }}>{campaign.title}</h3>
+                <Badge variant={getStatusVariant(campaign.status)}>
+                  {(campaign.status || '').replace('_', ' ')}
+                </Badge>
+              </div>
+
+              {campaign.description && (
+                <p style={{ margin: '0 0 16px', fontSize: '13px', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+                  {campaign.description}
+                </p>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+                  <MapPin size={14} style={{ color: 'var(--color-text-light)', flexShrink: 0 }} />
+                  {campaign.location || 'No location'}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+                  <Calendar size={14} style={{ color: 'var(--color-text-light)', flexShrink: 0 }} />
+                  {formatDate(campaign.visit_date)}
+                </div>
+                {campaign.assigned_to_name && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+                    <Users size={14} style={{ color: 'var(--color-text-light)', flexShrink: 0 }} />
+                    {campaign.assigned_to_name}
+                  </div>
+                )}
+              </div>
+
+              {campaign.notes && (
+                <p style={{ margin: '0 0 16px', fontSize: '12px', fontStyle: 'italic', color: 'var(--color-text-secondary)', padding: '8px 12px', backgroundColor: 'var(--color-border-light)', borderRadius: '8px' }}>
+                  {campaign.notes}
+                </p>
+              )}
+
+              {isAdmin && (
+                <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '16px', borderTop: '1px solid var(--color-border-light)', marginTop: 'auto' }}>
+                  <button
+                    onClick={() => handleEdit(campaign)}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '6px',
+                      background: 'none', border: '1px solid var(--color-border)',
+                      borderRadius: '8px', padding: '7px 14px', cursor: 'pointer',
+                      fontSize: '13px', fontWeight: 600, color: 'var(--color-text-secondary)',
+                      fontFamily: 'var(--font-family)', transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--color-border-light)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                  >
+                    <Edit2 size={13} /> Edit
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       )}
 
-      {/* New Campaign Modal */}
-      <Modal isOpen={showNewCampaignModal} onClose={() => { setShowNewCampaignModal(false); setNewCampaignData({ title: '', description: '', location: '', date: '', assignedTeacher: '', status: 'planned' }); }} title="Create New Campaign" size="md" footer={<div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}><Button variant="secondary" onClick={() => setShowNewCampaignModal(false)} disabled={submitting}>Cancel</Button><Button onClick={handleCreateCampaign} loading={submitting}>Create Campaign</Button></div>}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--color-text)' }}>Campaign Title *</label>
-            <Input value={newCampaignData.title} onChange={(e) => setNewCampaignData({ ...newCampaignData, title: e.target.value })} placeholder="e.g., Environmental Awareness Drive" />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--color-text)' }}>Description</label>
-            <Textarea value={newCampaignData.description} onChange={(e) => setNewCampaignData({ ...newCampaignData, description: e.target.value })} placeholder="Campaign description..." rows={4} />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--color-text)' }}>Location *</label>
-            <Input value={newCampaignData.location} onChange={(e) => setNewCampaignData({ ...newCampaignData, location: e.target.value })} placeholder="Campaign location" />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--color-text)' }}>Date *</label>
-            <Input type="date" value={newCampaignData.date} onChange={(e) => setNewCampaignData({ ...newCampaignData, date: e.target.value })} />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--color-text)' }}>Assign Teacher</label>
-            <Select value={newCampaignData.assignedTeacher} onChange={(e) => setNewCampaignData({ ...newCampaignData, assignedTeacher: e.target.value })}>
-              <option value="">Select a teacher</option>
-              {teachers.map((teacher) => (
-                <option key={teacher.id} value={teacher.id}>{teacher.name}</option>
-              ))}
-            </Select>
+      {/* Create Modal */}
+      {showNewModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}
+          onClick={() => setShowNewModal(false)}>
+          <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto' }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700 }}>Create New Campaign</h2>
+              <button onClick={() => setShowNewModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: '4px' }}><X size={20} /></button>
+            </div>
+            {renderForm(false)}
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
+              <button onClick={() => setShowNewModal(false)} style={{ padding: '10px 20px', backgroundColor: 'var(--color-border-light)', color: 'var(--color-text)', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-family)' }}>Cancel</button>
+              <button onClick={handleCreate} disabled={submitting} style={{ padding: '10px 20px', backgroundColor: '#1A1A2E', color: 'white', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: submitting ? 'wait' : 'pointer', fontFamily: 'var(--font-family)', opacity: submitting ? 0.7 : 1 }}>{submitting ? 'Creating...' : 'Create Campaign'}</button>
+            </div>
           </div>
         </div>
-      </Modal>
+      )}
 
-      {/* Edit Campaign Modal */}
-      <Modal isOpen={showEditModal} onClose={() => { setShowEditModal(false); setSelectedCampaign(null); }} title="Edit Campaign" size="md" footer={<div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}><Button variant="secondary" onClick={() => setShowEditModal(false)} disabled={submitting}>Cancel</Button><Button onClick={handleUpdateCampaign} loading={submitting}>Update Campaign</Button></div>}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--color-text)' }}>Campaign Title</label>
-            <Input value={editFormData.title || ''} onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })} />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--color-text)' }}>Location</label>
-            <Input value={editFormData.location || ''} onChange={(e) => setEditFormData({ ...editFormData, location: e.target.value })} />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--color-text)' }}>Date</label>
-            <Input type="date" value={editFormData.date || ''} onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })} />
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--color-text)' }}>Status</label>
-            <Select value={editFormData.status || 'planned'} onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}>
-              <option value="planned">Planned</option>
-              <option value="in_progress">In Progress</option>
-              <option value="completed">Completed</option>
-            </Select>
-          </div>
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px', color: 'var(--color-text)' }}>Visit Notes</label>
-            <Textarea value={editFormData.notes || ''} onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })} placeholder="Add notes about the campaign..." rows={4} />
+      {/* Edit Modal */}
+      {showEditModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}
+          onClick={() => { setShowEditModal(false); setSelectedCampaign(null); }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '560px', maxHeight: '90vh', overflowY: 'auto' }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700 }}>Edit Campaign</h2>
+              <button onClick={() => { setShowEditModal(false); setSelectedCampaign(null); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: '4px' }}><X size={20} /></button>
+            </div>
+            {renderForm(true)}
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '24px' }}>
+              <button onClick={() => { setShowEditModal(false); setSelectedCampaign(null); }} style={{ padding: '10px 20px', backgroundColor: 'var(--color-border-light)', color: 'var(--color-text)', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-family)' }}>Cancel</button>
+              <button onClick={handleUpdate} disabled={submitting} style={{ padding: '10px 20px', backgroundColor: '#1A1A2E', color: 'white', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: submitting ? 'wait' : 'pointer', fontFamily: 'var(--font-family)', opacity: submitting ? 0.7 : 1 }}>{submitting ? 'Updating...' : 'Update Campaign'}</button>
+            </div>
           </div>
         </div>
-      </Modal>
+      )}
     </div>
   );
 };
