@@ -297,6 +297,17 @@ router.delete('/users/:id', verifyToken, adminOnly, (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // Delete all related records first (order matters for foreign keys)
+    db.prepare('DELETE FROM collab_messages WHERE room_id IN (SELECT id FROM collab_rooms WHERE created_by = ?)').run(id);
+    db.prepare('DELETE FROM collab_messages WHERE author_id = ?').run(id);
+    db.prepare('DELETE FROM collab_rooms WHERE created_by = ?').run(id);
+    db.prepare('DELETE FROM teacher_attendance WHERE user_id = ?').run(id);
+    db.prepare('DELETE FROM student_attendance WHERE marked_by = ?').run(id);
+    db.prepare('DELETE FROM assessments WHERE entered_by = ?').run(id);
+    db.prepare('DELETE FROM tasks WHERE assigned_to = ? OR assigned_by = ?').run(id, id);
+    db.prepare('DELETE FROM announcements WHERE author_id = ?').run(id);
+    db.prepare('DELETE FROM campaigns WHERE created_by = ?').run(id);
+    db.prepare('UPDATE campaigns SET assigned_to = NULL WHERE assigned_to = ?').run(id);
     db.prepare('DELETE FROM users WHERE id = ?').run(id);
 
     return res.json({ message: 'User deleted successfully' });
