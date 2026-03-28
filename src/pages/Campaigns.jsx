@@ -59,7 +59,13 @@ const Campaigns = () => {
     }
     setSubmitting(true);
     try {
-      await api.post('/campaigns', { ...newCampaignData, createdBy: user?.id });
+      await api.post('/campaigns', {
+        title: newCampaignData.title,
+        description: newCampaignData.description,
+        location: newCampaignData.location,
+        visit_date: newCampaignData.date,
+        assigned_to: newCampaignData.assignedTeacher || null,
+      });
       setNewCampaignData({ title: '', description: '', location: '', date: '', assignedTeacher: '', status: 'planned' });
       setShowNewCampaignModal(false);
       await fetchCampaigns();
@@ -80,7 +86,15 @@ const Campaigns = () => {
   const handleUpdateCampaign = async () => {
     setSubmitting(true);
     try {
-      await api.put(`/campaigns/${selectedCampaign.id}`, editFormData);
+      await api.put(`/campaigns/${selectedCampaign.id}`, {
+        title: editFormData.title,
+        description: editFormData.description,
+        location: editFormData.location,
+        visit_date: editFormData.date,
+        assigned_to: editFormData.assignedTeacher || null,
+        status: editFormData.status,
+        notes: editFormData.notes,
+      });
       setShowEditModal(false);
       setSelectedCampaign(null);
       await fetchCampaigns();

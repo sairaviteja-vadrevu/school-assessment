@@ -68,7 +68,7 @@ const TeacherAttendance = () => {
   const handleCheckOut = async () => {
     try {
       setCheckingIn(true);
-      const result = await api.post('/attendance/teacher/check-out', {});
+      const result = await api.put('/attendance/teacher/check-out', {});
       setTodayStatus(result);
     } catch (error) {
       console.error('Failed to check out:', error);

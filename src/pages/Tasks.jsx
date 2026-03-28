@@ -67,7 +67,7 @@ const Tasks = () => {
       const matchesPriority =
         filterPriority === 'all' || task.priority === filterPriority;
       const matchesAssignee =
-        filterAssignee === 'all' || task.assignedTo === filterAssignee;
+        filterAssignee === 'all' || task.assigned_to === filterAssignee;
       const matchesSearch = searchQuery === '' ||
         task.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
         task.description.toLowerCase().includes(searchQuery.toLowerCase());
@@ -117,7 +117,13 @@ const Tasks = () => {
 
     try {
       setIsSubmitting(true);
-      const newTask = await api.post('/tasks', formData);
+      const newTask = await api.post('/tasks', {
+        title: formData.title,
+        description: formData.description,
+        assigned_to: formData.assignedTo,
+        deadline: formData.deadline,
+        priority: formData.priority,
+      });
       setTasks([...tasks, newTask]);
       setIsCreateModalOpen(false);
       setFormData({
@@ -138,7 +144,7 @@ const Tasks = () => {
 
   const handleUpdateTaskStatus = async (taskId, newStatus) => {
     try {
-      await api.patch(`/tasks/${taskId}`, { status: newStatus });
+      await api.put(`/tasks/${taskId}`, { status: newStatus });
       setTasks(
         tasks.map((t) =>
           t.id === taskId ? { ...t, status: newStatus } : t
@@ -479,10 +485,10 @@ const Tasks = () => {
                           color: 'var(--color-text-light)',
                         }}
                       >
-                        {task.assignedToName || 'Unassigned'}
+                        {task.assigned_to_name || 'Unassigned'}
                       </span>
                       {!isAdmin &&
-                        user?.id === task.assignedTo && (
+                        user?.id === task.assigned_to && (
                           <Button
                             size="sm"
                             variant="secondary"
@@ -562,10 +568,10 @@ const Tasks = () => {
                           color: 'var(--color-text-light)',
                         }}
                       >
-                        {task.assignedToName || 'Unassigned'}
+                        {task.assigned_to_name || 'Unassigned'}
                       </span>
                       {!isAdmin &&
-                        user?.id === task.assignedTo && (
+                        user?.id === task.assigned_to && (
                           <Button
                             size="sm"
                             variant="secondary"
@@ -652,7 +658,7 @@ const Tasks = () => {
                           color: 'var(--color-text-light)',
                         }}
                       >
-                        {task.assignedToName || 'Unassigned'}
+                        {task.assigned_to_name || 'Unassigned'}
                       </span>
                       {isAdmin && (
                         <Button
@@ -800,7 +806,7 @@ const Tasks = () => {
                 Close
               </Button>
               {!isAdmin &&
-                user?.id === selectedTask.assignedTo &&
+                user?.id === selectedTask.assigned_to &&
                 selectedTask.status !== 'completed' && (
                   <Button
                     variant="primary"
@@ -910,7 +916,7 @@ const Tasks = () => {
                     margin: 0,
                   }}
                 >
-                  {selectedTask.assignedToName || 'Unassigned'}
+                  {selectedTask.assigned_to_name || 'Unassigned'}
                 </p>
               </div>
             </div>

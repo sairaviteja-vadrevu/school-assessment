@@ -15,10 +15,12 @@ import {
   Button,
 } from '../components';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import api from '../utils/api';
 
 const AdminPanel = () => {
   const { user, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     totalTeachers: 0,
     totalStudents: 0,
@@ -410,10 +412,10 @@ const AdminPanel = () => {
               gap: '12px',
             }}
           >
-            <Button variant="primary">Generate Reports</Button>
-            <Button variant="secondary">Manage Users</Button>
-            <Button variant="secondary">View Logs</Button>
-            <Button variant="secondary">Export Data</Button>
+            <Button variant="secondary" onClick={() => navigate('/manage-users')}>Manage Users</Button>
+            <Button variant="secondary" onClick={() => navigate('/manage-classes')}>Classes & Students</Button>
+            <Button variant="secondary" onClick={() => navigate('/tasks')}>View Tasks</Button>
+            <Button variant="secondary" onClick={() => navigate('/campaigns')}>Campaigns</Button>
           </div>
         </Card>
       </div>

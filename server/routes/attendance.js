@@ -32,7 +32,7 @@ router.post('/teacher/check-in', verifyToken, (req, res) => {
     `).run(req.user.id, today, checkInTime, status, location || 'School Campus');
 
     const record = db.prepare(`
-      SELECT ta.*, u.name
+      SELECT ta.check_in as checkedInAt, ta.check_out as checkedOutAt, ta.status, u.name
       FROM teacher_attendance ta
       LEFT JOIN users u ON ta.user_id = u.id
       WHERE ta.id = ?
@@ -68,7 +68,7 @@ router.put('/teacher/check-out', verifyToken, (req, res) => {
     `).run(checkOutTime, record.id);
 
     const updatedRecord = db.prepare(`
-      SELECT ta.*, u.name
+      SELECT ta.check_in as checkedInAt, ta.check_out as checkedOutAt, ta.status, u.name
       FROM teacher_attendance ta
       LEFT JOIN users u ON ta.user_id = u.id
       WHERE ta.id = ?
@@ -78,6 +78,94 @@ router.put('/teacher/check-out', verifyToken, (req, res) => {
   } catch (error) {
     console.error('Check-out error:', error);
     return res.status(500).json({ error: 'Failed to check out' });
+  }
+});
+
+// GET /api/attendance/teacher/today - Get today's status for logged-in teacher
+router.get('/teacher/today', verifyToken, (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0];
+    const record = db.prepare(`
+      SELECT check_in as checkedInAt, check_out as checkedOutAt, status
+      FROM teacher_attendance
+      WHERE user_id = ? AND date = ?
+    `).get(req.user.id, today);
+
+    return res.json(record || { checkedInAt: null, checkedOutAt: null, status: null });
+  } catch (error) {
+    console.error('Get today attendance error:', error);
+    return res.status(500).json({ error: 'Failed to get today attendance' });
+  }
+});
+
+// GET /api/attendance/teacher/monthly - Get monthly stats for logged-in teacher
+router.get('/teacher/monthly', verifyToken, (req, res) => {
+  try {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const startDate = `${year}-${month}-01`;
+    const endDate = `${year}-${month}-31`;
+
+    const records = db.prepare(`
+      SELECT date, status, check_in
+      FROM teacher_attendance
+      WHERE user_id = ? AND date >= ? AND date <= ?
+      ORDER BY date ASC
+    `).all(req.user.id, startDate, endDate);
+
+    const presentDays = records.filter((r) => r.status === 'present').length;
+    const absentDays = records.filter((r) => r.status === 'absent').length;
+    const lateDays = records.filter((r) => r.status === 'late').length;
+    const onTimeDays = presentDays;
+
+    // Build calendar
+    const daysInMonth = new Date(year, now.getMonth() + 1, 0).getDate();
+    const firstDay = new Date(year, now.getMonth(), 1).getDay();
+    const calendar = [];
+
+    // Add empty slots for days before the 1st
+    for (let i = 0; i < firstDay; i++) {
+      calendar.push({ date: '', status: null });
+    }
+
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${month}-${String(d).padStart(2, '0')}`;
+      const record = records.find((r) => r.date === dateStr);
+      calendar.push({ date: d, status: record?.status || null });
+    }
+
+    return res.json({ presentDays, absentDays, lateDays, onTimeDays, calendar });
+  } catch (error) {
+    console.error('Get monthly attendance error:', error);
+    return res.status(500).json({ error: 'Failed to get monthly attendance' });
+  }
+});
+
+// GET /api/attendance/teachers - Admin view: all teachers' attendance for a date
+router.get('/teachers', verifyToken, adminOnly, (req, res) => {
+  try {
+    const { date } = req.query;
+    const targetDate = date || new Date().toISOString().split('T')[0];
+
+    const teachers = db.prepare(`
+      SELECT u.id, u.name, u.subject as department,
+        ta.status, ta.check_in as checkInTime, ta.check_out as checkOutTime
+      FROM users u
+      LEFT JOIN teacher_attendance ta ON ta.user_id = u.id AND ta.date = ?
+      WHERE u.role = 'teacher'
+      ORDER BY u.name ASC
+    `).all(targetDate);
+
+    const result = teachers.map((t) => ({
+      ...t,
+      status: t.status || 'absent',
+    }));
+
+    return res.json(result);
+  } catch (error) {
+    console.error('Get teachers attendance error:', error);
+    return res.status(500).json({ error: 'Failed to get teachers attendance' });
   }
 });
 
@@ -122,6 +210,76 @@ router.get('/teacher', verifyToken, (req, res) => {
 });
 
 // STUDENT ATTENDANCE ENDPOINTS
+
+// GET /api/attendance/students/history - Attendance history for a class
+router.get('/students/history', verifyToken, (req, res) => {
+  try {
+    const { classId, date } = req.query;
+
+    if (!classId) {
+      return res.status(400).json({ error: 'classId is required' });
+    }
+
+    const history = db.prepare(`
+      SELECT
+        sa.date,
+        SUM(CASE WHEN sa.status = 'present' THEN 1 ELSE 0 END) as presentCount,
+        SUM(CASE WHEN sa.status = 'absent' THEN 1 ELSE 0 END) as absentCount,
+        SUM(CASE WHEN sa.status = 'late' THEN 1 ELSE 0 END) as lateCount
+      FROM student_attendance sa
+      WHERE sa.class_id = ?
+      GROUP BY sa.date
+      ORDER BY sa.date DESC
+      LIMIT 30
+    `).all(classId);
+
+    return res.json(history);
+  } catch (error) {
+    console.error('Get attendance history error:', error);
+    return res.status(500).json({ error: 'Failed to get attendance history' });
+  }
+});
+
+// POST /api/attendance/submit - Submit student attendance (frontend-friendly)
+router.post('/submit', verifyToken, (req, res) => {
+  try {
+    const { classId, date, attendance } = req.body;
+
+    if (!classId || !date || !Array.isArray(attendance)) {
+      return res.status(400).json({ error: 'classId, date, and attendance array are required' });
+    }
+
+    const results = [];
+    const errors = [];
+
+    attendance.forEach(({ studentId, status }) => {
+      try {
+        const existing = db.prepare(`
+          SELECT id FROM student_attendance WHERE student_id = ? AND date = ?
+        `).get(studentId, date);
+
+        if (existing) {
+          db.prepare(`
+            UPDATE student_attendance SET status = ?, marked_by = ? WHERE student_id = ? AND date = ?
+          `).run(status, req.user.id, studentId, date);
+        } else {
+          db.prepare(`
+            INSERT INTO student_attendance (student_id, class_id, date, status, marked_by)
+            VALUES (?, ?, ?, ?, ?)
+          `).run(studentId, classId, date, status, req.user.id);
+        }
+        results.push({ studentId, status: 'success' });
+      } catch (err) {
+        errors.push({ studentId, error: err.message });
+      }
+    });
+
+    return res.json({ success: results, errors });
+  } catch (error) {
+    console.error('Submit attendance error:', error);
+    return res.status(500).json({ error: 'Failed to submit attendance' });
+  }
+});
 
 // POST /api/attendance/student - Mark student attendance (array)
 router.post('/student', verifyToken, (req, res) => {

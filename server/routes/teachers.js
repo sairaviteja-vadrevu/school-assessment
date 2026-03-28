@@ -1,8 +1,40 @@
 import express from 'express';
+import bcrypt from 'bcryptjs';
 import db from '../db.js';
-import { verifyToken } from '../middleware/auth.js';
+import { verifyToken, adminOnly } from '../middleware/auth.js';
 
 const router = express.Router();
+
+// POST /api/teachers - Create a new teacher (admin only)
+router.post('/', verifyToken, adminOnly, (req, res) => {
+  try {
+    const { name, email, subject, phone, classes } = req.body;
+
+    if (!name || !email || !subject) {
+      return res.status(400).json({ error: 'Name, email, and subject are required' });
+    }
+
+    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    if (existing) {
+      return res.status(409).json({ error: 'An account with this email already exists' });
+    }
+
+    const defaultPassword = bcrypt.hashSync('teacher123', 10);
+
+    const result = db.prepare(
+      'INSERT INTO users (name, email, password, role, subject, phone, classes) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(name, email, defaultPassword, 'teacher', subject, phone || null, classes || null);
+
+    const teacher = db.prepare(
+      'SELECT id, name, email, subject, phone, classes, responsibilities, created_at FROM users WHERE id = ?'
+    ).get(result.lastInsertRowid);
+
+    return res.status(201).json(teacher);
+  } catch (error) {
+    console.error('Create teacher error:', error);
+    return res.status(500).json({ error: 'Failed to create teacher' });
+  }
+});
 
 // GET /api/teachers - Get all teachers
 router.get('/', verifyToken, (req, res) => {

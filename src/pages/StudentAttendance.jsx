@@ -330,7 +330,7 @@ const StudentAttendance = () => {
                   <div style={studentNameStyles}>
                     <div style={{ fontWeight: 600 }}>{student.name}</div>
                     <div style={{ fontSize: '12px', color: 'var(--color-text-light)' }}>
-                      Roll No: {student.rollNumber}
+                      Roll No: {student.roll_number}
                     </div>
                   </div>
                   <div style={statusButtonGroupStyles}>
@@ -401,7 +401,7 @@ const StudentAttendance = () => {
                     <X size={16} />
                     <span>{student.name}</span>
                     <span style={{ fontSize: '11px', marginLeft: 'auto' }}>
-                      Roll: {student.rollNumber}
+                      Roll: {student.roll_number}
                     </span>
                   </div>
                 ))}

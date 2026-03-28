@@ -1,18 +1,102 @@
-import React, { useState, useEffect } from 'react';
-import {
-  Plus,
-  X,
-  Mail,
-  Lock,
-  User,
-  BookOpen,
-  Phone,
-  Shield,
-  CheckCircle,
-} from 'lucide-react';
-import { Card, Badge, Button } from '../components';
+import { useState, useEffect } from 'react';
+import { Plus, X, Trash2, CheckCircle, Mail, Phone, BookOpen, Shield, Search } from 'lucide-react';
+import { Badge } from '../components';
 import api from '../utils/api';
 import { useAuth } from '../context/AuthContext';
+
+const UserCard = ({ user, currentUser, onDelete }) => {
+  const isCurrentUser = user.id === currentUser?.id;
+  const isAdmin = user.role === 'admin';
+
+  return (
+    <div
+      style={{
+        backgroundColor: 'var(--color-surface)',
+        borderRadius: '14px',
+        border: '1px solid var(--color-border)',
+        padding: '24px',
+        transition: 'all 0.2s ease',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.boxShadow = 'var(--shadow-md)';
+        e.currentTarget.style.transform = 'translateY(-2px)';
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.boxShadow = 'none';
+        e.currentTarget.style.transform = 'translateY(0)';
+      }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '20px' }}>
+        <div style={{
+          width: '48px', height: '48px', borderRadius: '50%',
+          backgroundColor: isAdmin ? '#7C3AED' : '#1A1A2E',
+          color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: '15px', fontWeight: 700, flexShrink: 0,
+        }}>
+          {user.name?.substring(0, 2).toUpperCase()}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <p style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: 'var(--color-text)' }}>{user.name}</p>
+            {isCurrentUser && (
+              <span style={{ fontSize: '10px', fontWeight: 700, color: '#059669', backgroundColor: '#ECFDF5', padding: '2px 8px', borderRadius: '10px' }}>YOU</span>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+            <Badge variant={isAdmin ? 'primary' : 'default'}>{user.role}</Badge>
+          </div>
+        </div>
+      </div>
+
+      {/* Info */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+          <Mail size={14} style={{ color: 'var(--color-text-light)', flexShrink: 0 }} />
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.email}</span>
+        </div>
+        {user.phone && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+            <Phone size={14} style={{ color: 'var(--color-text-light)', flexShrink: 0 }} />
+            <span>{user.phone}</span>
+          </div>
+        )}
+        {user.subject && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+            <BookOpen size={14} style={{ color: 'var(--color-text-light)', flexShrink: 0 }} />
+            <span>{user.subject}</span>
+          </div>
+        )}
+        {user.classes && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+            <Shield size={14} style={{ color: 'var(--color-text-light)', flexShrink: 0 }} />
+            <span>{user.classes}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      {!isCurrentUser && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: '16px', borderTop: '1px solid var(--color-border-light)' }}>
+          <button
+            onClick={() => onDelete(user)}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              background: 'none', border: '1px solid var(--color-border)',
+              borderRadius: '8px', padding: '7px 14px', cursor: 'pointer',
+              fontSize: '13px', fontWeight: 600, color: 'var(--color-text-secondary)',
+              fontFamily: 'var(--font-family)', transition: 'all 0.15s ease',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.borderColor = '#FECACA'; e.currentTarget.style.backgroundColor = '#FEF2F2'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-secondary)'; e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+          >
+            <Trash2 size={13} /> Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const CreateAccountModal = ({ isOpen, onClose, onCreated }) => {
   const [form, setForm] = useState({
@@ -55,50 +139,26 @@ const CreateAccountModal = ({ isOpen, onClose, onCreated }) => {
 
   if (!isOpen) return null;
 
-  const overlayStyles = {
-    position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-    backdropFilter: 'blur(4px)',
-  };
-
-  const modalStyles = {
-    backgroundColor: 'white', borderRadius: '16px', padding: '32px',
-    width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto',
-    position: 'relative',
-  };
-
-  const inputGroup = { marginBottom: '16px' };
-
-  const labelStyle = {
-    display: 'block', fontSize: '13px', fontWeight: 600,
-    color: 'var(--color-text)', marginBottom: '6px',
-  };
-
   const inputStyle = {
     width: '100%', padding: '11px 14px', border: '1px solid var(--color-border)',
     borderRadius: '10px', fontSize: '14px', fontFamily: 'var(--font-family)',
     color: 'var(--color-text)', outline: 'none', backgroundColor: 'white',
-    transition: 'border-color 0.2s',
   };
-
+  const labelStyle = { display: 'block', fontSize: '13px', fontWeight: 600, color: 'var(--color-text)', marginBottom: '6px' };
   const selectStyle = { ...inputStyle, cursor: 'pointer', appearance: 'none' };
+  const inputGroup = { marginBottom: '16px' };
 
   return (
-    <div style={overlayStyles} onClick={onClose}>
-      <div style={modalStyles} onClick={(e) => e.stopPropagation()}>
+    <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }} onClick={onClose}>
+      <div style={{ backgroundColor: 'white', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '520px', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 700, color: 'var(--color-text)' }}>Create New Account</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: '4px' }}>
-            <X size={20} />
-          </button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: '4px' }}><X size={20} /></button>
         </div>
 
         {error && (
-          <div style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', padding: '10px 14px', borderRadius: '10px', fontSize: '13px', marginBottom: '16px' }}>
-            {error}
-          </div>
+          <div style={{ backgroundColor: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', padding: '10px 14px', borderRadius: '10px', fontSize: '13px', marginBottom: '16px' }}>{error}</div>
         )}
-
         {success && (
           <div style={{ backgroundColor: '#ECFDF5', border: '1px solid #D1FAE5', color: '#059669', padding: '10px 14px', borderRadius: '10px', fontSize: '13px', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <CheckCircle size={16} /> Account created successfully!
@@ -113,23 +173,23 @@ const CreateAccountModal = ({ isOpen, onClose, onCreated }) => {
             </div>
             <div style={inputGroup}>
               <label style={labelStyle}>Role *</label>
-              <select style={selectStyle} value={form.role} onChange={(e) => handleChange('role', e.target.value)}>
-                <option value="teacher">Teacher</option>
-                <option value="admin">Admin</option>
-              </select>
+              <div style={{ position: 'relative' }}>
+                <select style={{ ...selectStyle, paddingRight: '36px' }} value={form.role} onChange={(e) => handleChange('role', e.target.value)}>
+                  <option value="teacher">Teacher</option>
+                  <option value="admin">Admin</option>
+                </select>
+                <div style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none', color: 'var(--color-text-secondary)', fontSize: '12px' }}>&#9662;</div>
+              </div>
             </div>
           </div>
-
           <div style={inputGroup}>
             <label style={labelStyle}>Email *</label>
             <input style={inputStyle} type="email" placeholder="e.g. sarah@school.com" value={form.email} onChange={(e) => handleChange('email', e.target.value)} />
           </div>
-
           <div style={inputGroup}>
             <label style={labelStyle}>Password *</label>
             <input style={inputStyle} type="password" placeholder="Min 6 characters" value={form.password} onChange={(e) => handleChange('password', e.target.value)} />
           </div>
-
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
             <div style={inputGroup}>
               <label style={labelStyle}>Subject</label>
@@ -140,28 +200,22 @@ const CreateAccountModal = ({ isOpen, onClose, onCreated }) => {
               <input style={inputStyle} placeholder="e.g. 555-1234" value={form.phone} onChange={(e) => handleChange('phone', e.target.value)} />
             </div>
           </div>
-
           <div style={inputGroup}>
             <label style={labelStyle}>Assigned Classes</label>
             <input style={inputStyle} placeholder="e.g. 10A, 10B, 11A" value={form.classes} onChange={(e) => handleChange('classes', e.target.value)} />
           </div>
-
           <div style={inputGroup}>
             <label style={labelStyle}>Responsibilities</label>
             <input style={inputStyle} placeholder="e.g. Math instruction, Exam coordination" value={form.responsibilities} onChange={(e) => handleChange('responsibilities', e.target.value)} />
           </div>
-
           <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
             <button type="button" onClick={onClose} style={{
-              flex: 1, padding: '12px', backgroundColor: 'var(--color-border-light)',
-              color: 'var(--color-text)', border: 'none', borderRadius: '10px',
-              fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-family)',
+              flex: 1, padding: '12px', backgroundColor: 'var(--color-border-light)', color: 'var(--color-text)',
+              border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 600, cursor: 'pointer', fontFamily: 'var(--font-family)',
             }}>Cancel</button>
             <button type="submit" disabled={loading} style={{
-              flex: 1, padding: '12px', backgroundColor: '#1A1A2E',
-              color: 'white', border: 'none', borderRadius: '10px',
-              fontSize: '14px', fontWeight: 600, cursor: loading ? 'wait' : 'pointer',
-              fontFamily: 'var(--font-family)', opacity: loading ? 0.7 : 1,
+              flex: 1, padding: '12px', backgroundColor: '#1A1A2E', color: 'white', border: 'none', borderRadius: '10px',
+              fontSize: '14px', fontWeight: 600, cursor: loading ? 'wait' : 'pointer', fontFamily: 'var(--font-family)', opacity: loading ? 0.7 : 1,
             }}>{loading ? 'Creating...' : 'Create Account'}</button>
           </div>
         </form>
@@ -171,10 +225,21 @@ const CreateAccountModal = ({ isOpen, onClose, onCreated }) => {
 };
 
 const ManageUsers = () => {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleDelete = async (u) => {
+    if (!window.confirm(`Are you sure you want to delete "${u.name}"? This cannot be undone.`)) return;
+    try {
+      await api.delete(`/admin/users/${u.id}`);
+      setUsers(users.filter((x) => x.id !== u.id));
+    } catch (err) {
+      alert(err.message || 'Failed to delete user');
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -188,6 +253,11 @@ const ManageUsers = () => {
   };
 
   useEffect(() => { fetchUsers(); }, []);
+
+  const filtered = users.filter((u) => {
+    const q = searchQuery.toLowerCase();
+    return u.name?.toLowerCase().includes(q) || u.email?.toLowerCase().includes(q) || u.role?.toLowerCase().includes(q);
+  });
 
   if (!isAdmin) {
     return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>Access denied. Admin only.</div>;
@@ -214,53 +284,39 @@ const ManageUsers = () => {
         </button>
       </div>
 
-      {/* Users Table */}
-      <Card>
-        {loading ? (
-          <p style={{ textAlign: 'center', padding: '32px', color: 'var(--color-text-secondary)' }}>Loading...</p>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  {['Name', 'Email', 'Role', 'Subject', 'Classes', 'Phone'].map((h) => (
-                    <th key={h} style={{
-                      textAlign: 'left', padding: '12px 16px', fontSize: '12px', fontWeight: 600,
-                      color: 'var(--color-text-secondary)', textTransform: 'uppercase',
-                      letterSpacing: '0.5px', borderBottom: '1px solid var(--color-border)',
-                    }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {users.map((u) => (
-                  <tr key={u.id} style={{ borderBottom: '1px solid var(--color-border-light)' }}>
-                    <td style={{ padding: '14px 16px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{
-                          width: '36px', height: '36px', borderRadius: '50%', backgroundColor: '#1A1A2E',
-                          color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: '13px', fontWeight: 700, flexShrink: 0,
-                        }}>
-                          {u.name?.substring(0, 2).toUpperCase()}
-                        </div>
-                        <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--color-text)' }}>{u.name}</span>
-                      </div>
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: '14px', color: 'var(--color-text-secondary)' }}>{u.email}</td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <Badge variant={u.role === 'admin' ? 'primary' : 'default'}>{u.role}</Badge>
-                    </td>
-                    <td style={{ padding: '14px 16px', fontSize: '14px', color: 'var(--color-text-secondary)' }}>{u.subject || '—'}</td>
-                    <td style={{ padding: '14px 16px', fontSize: '14px', color: 'var(--color-text-secondary)' }}>{u.classes || '—'}</td>
-                    <td style={{ padding: '14px 16px', fontSize: '14px', color: 'var(--color-text-secondary)' }}>{u.phone || '—'}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+      {/* Search */}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: '10px', padding: '11px 16px',
+        backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)',
+        borderRadius: '10px', maxWidth: '400px',
+      }}>
+        <Search size={16} color="var(--color-text-light)" />
+        <input
+          type="text" placeholder="Search by name, email, or role..."
+          value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+          style={{ flex: 1, border: 'none', outline: 'none', fontSize: '14px', color: 'var(--color-text)', backgroundColor: 'transparent', fontFamily: 'var(--font-family)' }}
+        />
+        {searchQuery && (
+          <button onClick={() => setSearchQuery('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-light)', padding: '2px', display: 'flex' }}>
+            <X size={14} />
+          </button>
         )}
-      </Card>
+      </div>
+
+      {/* User Cards Grid */}
+      {loading ? (
+        <p style={{ textAlign: 'center', padding: '32px', color: 'var(--color-text-secondary)' }}>Loading...</p>
+      ) : filtered.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '48px', color: 'var(--color-text-secondary)', fontSize: '14px' }}>
+          {searchQuery ? 'No users match your search.' : 'No users found.'}
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+          {filtered.map((u) => (
+            <UserCard key={u.id} user={u} currentUser={currentUser} onDelete={handleDelete} />
+          ))}
+        </div>
+      )}
 
       <CreateAccountModal
         isOpen={showModal}

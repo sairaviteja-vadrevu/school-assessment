@@ -206,6 +206,7 @@ router.get('/:id/subjects', verifyToken, (req, res) => {
       'Science',
       'English',
       'Hindi',
+      'Telugu',
       'Social Studies',
       'Computer Science'
     ];

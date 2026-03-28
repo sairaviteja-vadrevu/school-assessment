@@ -15,6 +15,44 @@ function calculateGrade(marks, totalMarks) {
   return 'F';
 }
 
+// GET /api/assessments - Get assessments with query filters
+router.get('/', verifyToken, (req, res) => {
+  try {
+    const { class: classId, subject, exam_type } = req.query;
+
+    let query = `
+      SELECT a.*, s.name as student_name, c.name as class_name, u.name as entered_by_name
+      FROM assessments a
+      LEFT JOIN students s ON a.student_id = s.id
+      LEFT JOIN student_classes c ON s.class_id = c.id
+      LEFT JOIN users u ON a.entered_by = u.id
+      WHERE 1=1
+    `;
+    const params = [];
+
+    if (classId) {
+      query += ' AND s.class_id = ?';
+      params.push(classId);
+    }
+    if (subject) {
+      query += ' AND a.subject = ?';
+      params.push(subject);
+    }
+    if (exam_type) {
+      query += ' AND a.exam_type = ?';
+      params.push(exam_type);
+    }
+
+    query += ' ORDER BY a.date DESC, s.name ASC';
+
+    const assessments = db.prepare(query).all(...params);
+    return res.json(assessments);
+  } catch (error) {
+    console.error('Get assessments error:', error);
+    return res.status(500).json({ error: 'Failed to get assessments' });
+  }
+});
+
 // POST /api/assessments - Enter marks (bulk)
 router.post('/', verifyToken, (req, res) => {
   try {
@@ -46,6 +84,56 @@ router.post('/', verifyToken, (req, res) => {
   } catch (error) {
     console.error('Enter marks error:', error);
     return res.status(500).json({ error: 'Failed to enter marks' });
+  }
+});
+
+// PUT /api/assessments/:id - Update a single assessment
+router.put('/:id', verifyToken, (req, res) => {
+  try {
+    const { id } = req.params;
+    const { marks, total_marks } = req.body;
+
+    const existing = db.prepare('SELECT * FROM assessments WHERE id = ?').get(id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Assessment not found' });
+    }
+
+    const newMarks = marks !== undefined ? marks : existing.marks;
+    const newTotal = total_marks !== undefined ? total_marks : existing.total_marks;
+    const percentage = (newMarks / newTotal) * 100;
+    const grade = percentage >= 90 ? 'A' : percentage >= 80 ? 'B' : percentage >= 70 ? 'C' : percentage >= 60 ? 'D' : 'F';
+
+    db.prepare('UPDATE assessments SET marks = ?, total_marks = ?, grade = ? WHERE id = ?')
+      .run(newMarks, newTotal, grade, id);
+
+    const updated = db.prepare(`
+      SELECT a.*, s.name as student_name, c.name as class_name
+      FROM assessments a
+      LEFT JOIN students s ON a.student_id = s.id
+      LEFT JOIN student_classes c ON s.class_id = c.id
+      WHERE a.id = ?
+    `).get(id);
+
+    return res.json(updated);
+  } catch (error) {
+    console.error('Update assessment error:', error);
+    return res.status(500).json({ error: 'Failed to update assessment' });
+  }
+});
+
+// DELETE /api/assessments/:id - Delete a single assessment
+router.delete('/:id', verifyToken, (req, res) => {
+  try {
+    const { id } = req.params;
+    const existing = db.prepare('SELECT id FROM assessments WHERE id = ?').get(id);
+    if (!existing) {
+      return res.status(404).json({ error: 'Assessment not found' });
+    }
+    db.prepare('DELETE FROM assessments WHERE id = ?').run(id);
+    return res.json({ message: 'Assessment deleted successfully' });
+  } catch (error) {
+    console.error('Delete assessment error:', error);
+    return res.status(500).json({ error: 'Failed to delete assessment' });
   }
 });
 
