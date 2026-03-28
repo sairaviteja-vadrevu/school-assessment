@@ -1,5 +1,5 @@
 import express from 'express';
-import db from '../db.js';
+import { query, pool } from '../db.js';
 import { verifyToken, adminOnly } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -7,32 +7,32 @@ const router = express.Router();
 // ============ ROOMS ============
 
 // GET /api/collaboration/rooms - Get rooms (filtered by membership for teachers)
-router.get('/rooms', verifyToken, (req, res) => {
+router.get('/rooms', verifyToken, async (req, res) => {
   try {
-    let rooms;
+    let result;
 
     if (req.user.role === 'admin') {
-      rooms = db.prepare(`
+      result = await query(`
         SELECT r.*, u.name as created_by_name,
           (SELECT COUNT(*) FROM collab_messages WHERE room_id = r.id) as message_count,
-          (SELECT COUNT(*) FROM collab_notifications WHERE room_id = r.id AND user_id = ? AND is_read = 0) as unread_count
+          (SELECT COUNT(*) FROM collab_notifications WHERE room_id = r.id AND user_id = $1 AND is_read = 0) as unread_count
         FROM collab_rooms r
         LEFT JOIN users u ON r.created_by = u.id
         ORDER BY r.created_at DESC
-      `).all(req.user.id);
+      `, [req.user.id]);
     } else {
-      rooms = db.prepare(`
+      result = await query(`
         SELECT r.*, u.name as created_by_name,
           (SELECT COUNT(*) FROM collab_messages WHERE room_id = r.id) as message_count,
-          (SELECT COUNT(*) FROM collab_notifications WHERE room_id = r.id AND user_id = ? AND is_read = 0) as unread_count
+          (SELECT COUNT(*) FROM collab_notifications WHERE room_id = r.id AND user_id = $1 AND is_read = 0) as unread_count
         FROM collab_rooms r
         LEFT JOIN users u ON r.created_by = u.id
-        INNER JOIN collab_room_members m ON m.room_id = r.id AND m.user_id = ?
+        INNER JOIN collab_room_members m ON m.room_id = r.id AND m.user_id = $2
         ORDER BY r.created_at DESC
-      `).all(req.user.id, req.user.id);
+      `, [req.user.id, req.user.id]);
     }
 
-    return res.json(rooms);
+    return res.json(result.rows);
   } catch (error) {
     console.error('Get rooms error:', error);
     return res.status(500).json({ error: 'Failed to get rooms' });
@@ -40,7 +40,7 @@ router.get('/rooms', verifyToken, (req, res) => {
 });
 
 // POST /api/collaboration/rooms - Create room (admin only) with members
-router.post('/rooms', verifyToken, adminOnly, (req, res) => {
+router.post('/rooms', verifyToken, adminOnly, async (req, res) => {
   try {
     const { name, description, type, member_ids } = req.body;
 
@@ -53,38 +53,45 @@ router.post('/rooms', verifyToken, adminOnly, (req, res) => {
       return res.status(400).json({ error: 'Invalid type' });
     }
 
-    const createRoom = db.transaction(() => {
-      const result = db.prepare(`
-        INSERT INTO collab_rooms (name, description, type, created_by)
-        VALUES (?, ?, ?, ?)
-      `).run(name, description || null, type, req.user.id);
+    const client = await pool.connect();
+    let roomId;
+    try {
+      await client.query('BEGIN');
 
-      const roomId = result.lastInsertRowid;
+      const insertResult = await client.query(`
+        INSERT INTO collab_rooms (name, description, type, created_by)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id
+      `, [name, description || null, type, req.user.id]);
+
+      roomId = insertResult.rows[0].id;
 
       // Always add creator as member
-      db.prepare('INSERT INTO collab_room_members (room_id, user_id) VALUES (?, ?)').run(roomId, req.user.id);
+      await client.query('INSERT INTO collab_room_members (room_id, user_id) VALUES ($1, $2)', [roomId, req.user.id]);
 
       // Add invited members
       if (Array.isArray(member_ids)) {
-        const insertMember = db.prepare('INSERT OR IGNORE INTO collab_room_members (room_id, user_id) VALUES (?, ?)');
         for (const userId of member_ids) {
-          insertMember.run(roomId, userId);
+          await client.query('INSERT INTO collab_room_members (room_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [roomId, userId]);
         }
       }
 
-      return roomId;
-    });
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
 
-    const roomId = createRoom();
-
-    const room = db.prepare(`
+    const roomResult = await query(`
       SELECT r.*, u.name as created_by_name
       FROM collab_rooms r
       LEFT JOIN users u ON r.created_by = u.id
-      WHERE r.id = ?
-    `).get(roomId);
+      WHERE r.id = $1
+    `, [roomId]);
 
-    return res.status(201).json(room);
+    return res.status(201).json(roomResult.rows[0]);
   } catch (error) {
     console.error('Create room error:', error);
     return res.status(500).json({ error: 'Failed to create room' });
@@ -92,18 +99,18 @@ router.post('/rooms', verifyToken, adminOnly, (req, res) => {
 });
 
 // GET /api/collaboration/rooms/:room_id/members - Get room members
-router.get('/rooms/:room_id/members', verifyToken, (req, res) => {
+router.get('/rooms/:room_id/members', verifyToken, async (req, res) => {
   try {
     const { room_id } = req.params;
-    const members = db.prepare(`
+    const result = await query(`
       SELECT u.id, u.name, u.email, u.role, u.subject, m.joined_at
       FROM collab_room_members m
       JOIN users u ON m.user_id = u.id
-      WHERE m.room_id = ?
+      WHERE m.room_id = $1
       ORDER BY u.name ASC
-    `).all(room_id);
+    `, [room_id]);
 
-    return res.json(members);
+    return res.json(result.rows);
   } catch (error) {
     console.error('Get room members error:', error);
     return res.status(500).json({ error: 'Failed to get room members' });
@@ -111,7 +118,7 @@ router.get('/rooms/:room_id/members', verifyToken, (req, res) => {
 });
 
 // POST /api/collaboration/rooms/:room_id/members - Add members (admin only)
-router.post('/rooms/:room_id/members', verifyToken, adminOnly, (req, res) => {
+router.post('/rooms/:room_id/members', verifyToken, adminOnly, async (req, res) => {
   try {
     const { room_id } = req.params;
     const { user_ids } = req.body;
@@ -120,9 +127,8 @@ router.post('/rooms/:room_id/members', verifyToken, adminOnly, (req, res) => {
       return res.status(400).json({ error: 'user_ids array is required' });
     }
 
-    const insertMember = db.prepare('INSERT OR IGNORE INTO collab_room_members (room_id, user_id) VALUES (?, ?)');
     for (const userId of user_ids) {
-      insertMember.run(room_id, userId);
+      await query('INSERT INTO collab_room_members (room_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [room_id, userId]);
     }
 
     return res.json({ message: 'Members added successfully' });
@@ -135,33 +141,33 @@ router.post('/rooms/:room_id/members', verifyToken, adminOnly, (req, res) => {
 // ============ MESSAGES ============
 
 // GET /api/collaboration/messages/:room_id - Get messages
-router.get('/messages/:room_id', verifyToken, (req, res) => {
+router.get('/messages/:room_id', verifyToken, async (req, res) => {
   try {
     const { room_id } = req.params;
 
     // Verify room exists
-    const room = db.prepare('SELECT id FROM collab_rooms WHERE id = ?').get(room_id);
-    if (!room) {
+    const roomResult = await query('SELECT id FROM collab_rooms WHERE id = $1', [room_id]);
+    if (!roomResult.rows[0]) {
       return res.status(404).json({ error: 'Room not found' });
     }
 
     // Check membership (admins bypass)
     if (req.user.role !== 'admin') {
-      const member = db.prepare('SELECT id FROM collab_room_members WHERE room_id = ? AND user_id = ?').get(room_id, req.user.id);
-      if (!member) {
+      const memberResult = await query('SELECT id FROM collab_room_members WHERE room_id = $1 AND user_id = $2', [room_id, req.user.id]);
+      if (!memberResult.rows[0]) {
         return res.status(403).json({ error: 'Not a member of this room' });
       }
     }
 
-    const messages = db.prepare(`
+    const result = await query(`
       SELECT m.*, u.name as author_name
       FROM collab_messages m
       LEFT JOIN users u ON m.author_id = u.id
-      WHERE m.room_id = ?
+      WHERE m.room_id = $1
       ORDER BY m.created_at ASC
-    `).all(room_id);
+    `, [room_id]);
 
-    return res.json(messages);
+    return res.json(result.rows);
   } catch (error) {
     console.error('Get messages error:', error);
     return res.status(500).json({ error: 'Failed to get messages' });
@@ -169,7 +175,7 @@ router.get('/messages/:room_id', verifyToken, (req, res) => {
 });
 
 // POST /api/collaboration/messages - Send message + create notifications
-router.post('/messages', verifyToken, (req, res) => {
+router.post('/messages', verifyToken, async (req, res) => {
   try {
     const { room_id, content, parent_id } = req.body;
 
@@ -178,55 +184,59 @@ router.post('/messages', verifyToken, (req, res) => {
     }
 
     // Verify room exists
-    const room = db.prepare('SELECT id FROM collab_rooms WHERE id = ?').get(room_id);
-    if (!room) {
+    const roomResult = await query('SELECT id FROM collab_rooms WHERE id = $1', [room_id]);
+    if (!roomResult.rows[0]) {
       return res.status(404).json({ error: 'Room not found' });
     }
 
     // Check membership (admins bypass)
     if (req.user.role !== 'admin') {
-      const member = db.prepare('SELECT id FROM collab_room_members WHERE room_id = ? AND user_id = ?').get(room_id, req.user.id);
-      if (!member) {
+      const memberResult = await query('SELECT id FROM collab_room_members WHERE room_id = $1 AND user_id = $2', [room_id, req.user.id]);
+      if (!memberResult.rows[0]) {
         return res.status(403).json({ error: 'Not a member of this room' });
       }
     }
 
-    const sendMessage = db.transaction(() => {
-      const result = db.prepare(`
-        INSERT INTO collab_messages (room_id, author_id, content, parent_id)
-        VALUES (?, ?, ?, ?)
-      `).run(room_id, req.user.id, content, parent_id || null);
+    const client = await pool.connect();
+    let messageId;
+    try {
+      await client.query('BEGIN');
 
-      const messageId = result.lastInsertRowid;
+      const insertResult = await client.query(`
+        INSERT INTO collab_messages (room_id, author_id, content, parent_id)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id
+      `, [room_id, req.user.id, content, parent_id || null]);
+
+      messageId = insertResult.rows[0].id;
 
       // Create notifications for all other room members
-      const members = db.prepare(`
-        SELECT user_id FROM collab_room_members WHERE room_id = ? AND user_id != ?
-      `).all(room_id, req.user.id);
+      const membersResult = await client.query(`
+        SELECT user_id FROM collab_room_members WHERE room_id = $1 AND user_id != $2
+      `, [room_id, req.user.id]);
 
-      const insertNotification = db.prepare(`
-        INSERT INTO collab_notifications (user_id, room_id, message_id) VALUES (?, ?, ?)
-      `);
-      for (const m of members) {
-        insertNotification.run(m.user_id, room_id, messageId);
+      for (const m of membersResult.rows) {
+        await client.query(`
+          INSERT INTO collab_notifications (user_id, room_id, message_id) VALUES ($1, $2, $3)
+        `, [m.user_id, room_id, messageId]);
       }
 
-      // Also notify admin if admin is not a member but should see everything
-      // (admins are auto-notified only if they're members)
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
 
-      return messageId;
-    });
-
-    const messageId = sendMessage();
-
-    const message = db.prepare(`
+    const messageResult = await query(`
       SELECT m.*, u.name as author_name
       FROM collab_messages m
       LEFT JOIN users u ON m.author_id = u.id
-      WHERE m.id = ?
-    `).get(messageId);
+      WHERE m.id = $1
+    `, [messageId]);
 
-    return res.status(201).json(message);
+    return res.status(201).json(messageResult.rows[0]);
   } catch (error) {
     console.error('Create message error:', error);
     return res.status(500).json({ error: 'Failed to create message' });
@@ -236,14 +246,14 @@ router.post('/messages', verifyToken, (req, res) => {
 // ============ NOTIFICATIONS ============
 
 // GET /api/collaboration/notifications/unread - Get total unread count
-router.get('/notifications/unread', verifyToken, (req, res) => {
+router.get('/notifications/unread', verifyToken, async (req, res) => {
   try {
-    const result = db.prepare(`
+    const result = await query(`
       SELECT COUNT(*) as total_unread FROM collab_notifications
-      WHERE user_id = ? AND is_read = 0
-    `).get(req.user.id);
+      WHERE user_id = $1 AND is_read = 0
+    `, [req.user.id]);
 
-    return res.json({ total_unread: result.total_unread });
+    return res.json({ total_unread: result.rows[0].total_unread });
   } catch (error) {
     console.error('Get unread count error:', error);
     return res.status(500).json({ error: 'Failed to get unread count' });
@@ -251,7 +261,7 @@ router.get('/notifications/unread', verifyToken, (req, res) => {
 });
 
 // POST /api/collaboration/notifications/mark-read - Mark room notifications as read
-router.post('/notifications/mark-read', verifyToken, (req, res) => {
+router.post('/notifications/mark-read', verifyToken, async (req, res) => {
   try {
     const { room_id } = req.body;
 
@@ -259,10 +269,10 @@ router.post('/notifications/mark-read', verifyToken, (req, res) => {
       return res.status(400).json({ error: 'room_id is required' });
     }
 
-    db.prepare(`
+    await query(`
       UPDATE collab_notifications SET is_read = 1
-      WHERE user_id = ? AND room_id = ? AND is_read = 0
-    `).run(req.user.id, room_id);
+      WHERE user_id = $1 AND room_id = $2 AND is_read = 0
+    `, [req.user.id, room_id]);
 
     return res.json({ message: 'Notifications marked as read' });
   } catch (error) {

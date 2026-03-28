@@ -1,15 +1,15 @@
 import express from 'express';
-import db from '../db.js';
+import { query } from '../db.js';
 import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // GET /api/campaigns - Get all campaigns
-router.get('/', verifyToken, (req, res) => {
+router.get('/', verifyToken, async (req, res) => {
   try {
     const { status, assigned_to } = req.query;
 
-    let query = `
+    let sql = `
       SELECT c.*, u1.name as assigned_to_name, u2.name as created_by_name
       FROM campaigns c
       LEFT JOIN users u1 ON c.assigned_to = u1.id
@@ -17,26 +17,27 @@ router.get('/', verifyToken, (req, res) => {
       WHERE 1=1
     `;
     const params = [];
+    let paramIndex = 1;
 
     if (status) {
-      query += ' AND c.status = ?';
+      sql += ` AND c.status = $${paramIndex++}`;
       params.push(status);
     }
     if (assigned_to) {
-      query += ' AND c.assigned_to = ?';
+      sql += ` AND c.assigned_to = $${paramIndex++}`;
       params.push(assigned_to);
     }
 
     // Teachers only see campaigns assigned to them
     if (req.user.role === 'teacher') {
-      query += ' AND c.assigned_to = ?';
+      sql += ` AND c.assigned_to = $${paramIndex++}`;
       params.push(req.user.id);
     }
 
-    query += ' ORDER BY c.visit_date ASC, c.created_at DESC';
+    sql += ' ORDER BY c.visit_date ASC, c.created_at DESC';
 
-    const campaigns = db.prepare(query).all(...params);
-    return res.json(campaigns);
+    const result = await query(sql, params);
+    return res.json(result.rows);
   } catch (error) {
     console.error('Get campaigns error:', error);
     return res.status(500).json({ error: 'Failed to get campaigns' });
@@ -44,7 +45,7 @@ router.get('/', verifyToken, (req, res) => {
 });
 
 // POST /api/campaigns - Create campaign
-router.post('/', verifyToken, (req, res) => {
+router.post('/', verifyToken, async (req, res) => {
   try {
     const { title, description, assigned_to, location, visit_date } = req.body;
 
@@ -52,10 +53,11 @@ router.post('/', verifyToken, (req, res) => {
       return res.status(400).json({ error: 'Title is required' });
     }
 
-    const result = db.prepare(`
+    const insertResult = await query(`
       INSERT INTO campaigns (title, description, assigned_to, location, visit_date, created_by, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id
+    `, [
       title,
       description || null,
       assigned_to || null,
@@ -63,17 +65,19 @@ router.post('/', verifyToken, (req, res) => {
       visit_date || null,
       req.user.id,
       'planned'
-    );
+    ]);
 
-    const campaign = db.prepare(`
+    const newId = insertResult.rows[0].id;
+
+    const campaignResult = await query(`
       SELECT c.*, u1.name as assigned_to_name, u2.name as created_by_name
       FROM campaigns c
       LEFT JOIN users u1 ON c.assigned_to = u1.id
       LEFT JOIN users u2 ON c.created_by = u2.id
-      WHERE c.id = ?
-    `).get(result.lastInsertRowid);
+      WHERE c.id = $1
+    `, [newId]);
 
-    return res.status(201).json(campaign);
+    return res.status(201).json(campaignResult.rows[0]);
   } catch (error) {
     console.error('Create campaign error:', error);
     return res.status(500).json({ error: 'Failed to create campaign' });
@@ -81,23 +85,23 @@ router.post('/', verifyToken, (req, res) => {
 });
 
 // GET /api/campaigns/:id - Get campaign by ID
-router.get('/:id', verifyToken, (req, res) => {
+router.get('/:id', verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const campaign = db.prepare(`
+    const result = await query(`
       SELECT c.*, u1.name as assigned_to_name, u2.name as created_by_name
       FROM campaigns c
       LEFT JOIN users u1 ON c.assigned_to = u1.id
       LEFT JOIN users u2 ON c.created_by = u2.id
-      WHERE c.id = ?
-    `).get(id);
+      WHERE c.id = $1
+    `, [id]);
 
-    if (!campaign) {
+    if (!result.rows[0]) {
       return res.status(404).json({ error: 'Campaign not found' });
     }
 
-    return res.json(campaign);
+    return res.json(result.rows[0]);
   } catch (error) {
     console.error('Get campaign error:', error);
     return res.status(500).json({ error: 'Failed to get campaign' });
@@ -105,46 +109,47 @@ router.get('/:id', verifyToken, (req, res) => {
 });
 
 // PUT /api/campaigns/:id - Update campaign
-router.put('/:id', verifyToken, (req, res) => {
+router.put('/:id', verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { title, description, assigned_to, location, visit_date, notes, status } = req.body;
 
-    const campaign = db.prepare('SELECT id FROM campaigns WHERE id = ?').get(id);
+    const campaignResult = await query('SELECT id FROM campaigns WHERE id = $1', [id]);
 
-    if (!campaign) {
+    if (!campaignResult.rows[0]) {
       return res.status(404).json({ error: 'Campaign not found' });
     }
 
     const updates = [];
     const values = [];
+    let paramIndex = 1;
 
     if (title !== undefined) {
-      updates.push('title = ?');
+      updates.push(`title = $${paramIndex++}`);
       values.push(title);
     }
     if (description !== undefined) {
-      updates.push('description = ?');
+      updates.push(`description = $${paramIndex++}`);
       values.push(description);
     }
     if (assigned_to !== undefined) {
-      updates.push('assigned_to = ?');
+      updates.push(`assigned_to = $${paramIndex++}`);
       values.push(assigned_to);
     }
     if (location !== undefined) {
-      updates.push('location = ?');
+      updates.push(`location = $${paramIndex++}`);
       values.push(location);
     }
     if (visit_date !== undefined) {
-      updates.push('visit_date = ?');
+      updates.push(`visit_date = $${paramIndex++}`);
       values.push(visit_date);
     }
     if (notes !== undefined) {
-      updates.push('notes = ?');
+      updates.push(`notes = $${paramIndex++}`);
       values.push(notes);
     }
     if (status !== undefined) {
-      updates.push('status = ?');
+      updates.push(`status = $${paramIndex++}`);
       values.push(status);
     }
 
@@ -154,17 +159,17 @@ router.put('/:id', verifyToken, (req, res) => {
 
     values.push(id);
 
-    db.prepare(`UPDATE campaigns SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+    await query(`UPDATE campaigns SET ${updates.join(', ')} WHERE id = $${paramIndex}`, values);
 
-    const updatedCampaign = db.prepare(`
+    const updatedResult = await query(`
       SELECT c.*, u1.name as assigned_to_name, u2.name as created_by_name
       FROM campaigns c
       LEFT JOIN users u1 ON c.assigned_to = u1.id
       LEFT JOIN users u2 ON c.created_by = u2.id
-      WHERE c.id = ?
-    `).get(id);
+      WHERE c.id = $1
+    `, [id]);
 
-    return res.json(updatedCampaign);
+    return res.json(updatedResult.rows[0]);
   } catch (error) {
     console.error('Update campaign error:', error);
     return res.status(500).json({ error: 'Failed to update campaign' });
@@ -184,8 +189,8 @@ router.post('/:id/location', verifyToken, async (req, res) => {
     const now = new Date().toISOString();
 
     // Update current live location
-    db.prepare('UPDATE campaigns SET live_lat = ?, live_lng = ?, live_updated_at = ? WHERE id = ?')
-      .run(lat, lng, now, id);
+    await query('UPDATE campaigns SET live_lat = $1, live_lng = $2, live_updated_at = $3 WHERE id = $4',
+      [lat, lng, now, id]);
 
     // If log=true, save to location timeline with reverse geocoded place name
     if (log) {
@@ -205,8 +210,8 @@ router.post('/:id/location', verifyToken, async (req, res) => {
         // Use coordinate fallback
       }
 
-      db.prepare('INSERT INTO campaign_location_logs (campaign_id, lat, lng, place_name, logged_at) VALUES (?, ?, ?, ?, ?)')
-        .run(id, lat, lng, placeName, now);
+      await query('INSERT INTO campaign_location_logs (campaign_id, lat, lng, place_name, logged_at) VALUES ($1, $2, $3, $4, $5)',
+        [id, lat, lng, placeName, now]);
     }
 
     return res.json({ message: 'Location updated' });
@@ -217,13 +222,13 @@ router.post('/:id/location', verifyToken, async (req, res) => {
 });
 
 // GET /api/campaigns/:id/location-logs - Get location timeline
-router.get('/:id/location-logs', verifyToken, (req, res) => {
+router.get('/:id/location-logs', verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const logs = db.prepare(`
-      SELECT * FROM campaign_location_logs WHERE campaign_id = ? ORDER BY logged_at ASC
-    `).all(id);
-    return res.json(logs);
+    const result = await query(`
+      SELECT * FROM campaign_location_logs WHERE campaign_id = $1 ORDER BY logged_at ASC
+    `, [id]);
+    return res.json(result.rows);
   } catch (error) {
     console.error('Get location logs error:', error);
     return res.status(500).json({ error: 'Failed to get location logs' });
@@ -231,17 +236,17 @@ router.get('/:id/location-logs', verifyToken, (req, res) => {
 });
 
 // DELETE /api/campaigns/:id - Delete campaign
-router.delete('/:id', verifyToken, (req, res) => {
+router.delete('/:id', verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const campaign = db.prepare('SELECT id FROM campaigns WHERE id = ?').get(id);
+    const campaignResult = await query('SELECT id FROM campaigns WHERE id = $1', [id]);
 
-    if (!campaign) {
+    if (!campaignResult.rows[0]) {
       return res.status(404).json({ error: 'Campaign not found' });
     }
 
-    db.prepare('DELETE FROM campaigns WHERE id = ?').run(id);
+    await query('DELETE FROM campaigns WHERE id = $1', [id]);
 
     return res.json({ message: 'Campaign deleted successfully' });
   } catch (error) {

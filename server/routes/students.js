@@ -1,20 +1,20 @@
 import express from 'express';
-import db from '../db.js';
+import { query } from '../db.js';
 import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
 // GET /api/students - Get all students with their class info
-router.get('/', verifyToken, (req, res) => {
+router.get('/', verifyToken, async (req, res) => {
   try {
-    const students = db.prepare(`
+    const result = await query(`
       SELECT s.id, s.name, s.class_id, s.roll_number, c.name as class_name, c.section, c.grade
       FROM students s
       JOIN student_classes c ON s.class_id = c.id
       ORDER BY c.grade ASC, c.name ASC, s.roll_number ASC
-    `).all();
+    `);
 
-    return res.json(students);
+    return res.json(result.rows);
   } catch (error) {
     console.error('Get students error:', error);
     return res.status(500).json({ error: 'Failed to get students' });
@@ -22,22 +22,22 @@ router.get('/', verifyToken, (req, res) => {
 });
 
 // GET /api/students/:id - Get single student with class info
-router.get('/:id', verifyToken, (req, res) => {
+router.get('/:id', verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const student = db.prepare(`
+    const result = await query(`
       SELECT s.id, s.name, s.class_id, s.roll_number, c.name as class_name, c.section, c.grade
       FROM students s
       JOIN student_classes c ON s.class_id = c.id
-      WHERE s.id = ?
-    `).get(id);
+      WHERE s.id = $1
+    `, [id]);
 
-    if (!student) {
+    if (!result.rows[0]) {
       return res.status(404).json({ error: 'Student not found' });
     }
 
-    return res.json(student);
+    return res.json(result.rows[0]);
   } catch (error) {
     console.error('Get student error:', error);
     return res.status(500).json({ error: 'Failed to get student' });
@@ -45,7 +45,7 @@ router.get('/:id', verifyToken, (req, res) => {
 });
 
 // POST /api/students - Create new student
-router.post('/', verifyToken, (req, res) => {
+router.post('/', verifyToken, async (req, res) => {
   try {
     const { name, class_id, roll_number } = req.body;
 
@@ -54,25 +54,28 @@ router.post('/', verifyToken, (req, res) => {
     }
 
     // Validate class_id exists
-    const classData = db.prepare('SELECT id FROM student_classes WHERE id = ?').get(class_id);
+    const classResult = await query('SELECT id FROM student_classes WHERE id = $1', [class_id]);
 
-    if (!classData) {
+    if (!classResult.rows[0]) {
       return res.status(400).json({ error: 'Class not found' });
     }
 
-    const result = db.prepare(`
+    const insertResult = await query(`
       INSERT INTO students (name, class_id, roll_number)
-      VALUES (?, ?, ?)
-    `).run(name, class_id, roll_number);
+      VALUES ($1, $2, $3)
+      RETURNING id
+    `, [name, class_id, roll_number]);
 
-    const newStudent = db.prepare(`
+    const newId = insertResult.rows[0].id;
+
+    const studentResult = await query(`
       SELECT s.id, s.name, s.class_id, s.roll_number, c.name as class_name, c.section, c.grade
       FROM students s
       JOIN student_classes c ON s.class_id = c.id
-      WHERE s.id = ?
-    `).get(result.lastInsertRowid);
+      WHERE s.id = $1
+    `, [newId]);
 
-    return res.status(201).json(newStudent);
+    return res.status(201).json(studentResult.rows[0]);
   } catch (error) {
     console.error('Create student error:', error);
     return res.status(500).json({ error: 'Failed to create student' });
@@ -80,7 +83,7 @@ router.post('/', verifyToken, (req, res) => {
 });
 
 // POST /api/students/bulk - Create multiple students at once
-router.post('/bulk', verifyToken, (req, res) => {
+router.post('/bulk', verifyToken, async (req, res) => {
   try {
     const { students: studentsData } = req.body;
 
@@ -104,8 +107,8 @@ router.post('/bulk', verifyToken, (req, res) => {
 
     // Check all class_ids exist
     for (const classId of classIds) {
-      const classData = db.prepare('SELECT id FROM student_classes WHERE id = ?').get(classId);
-      if (!classData) {
+      const classResult = await query('SELECT id FROM student_classes WHERE id = $1', [classId]);
+      if (!classResult.rows[0]) {
         errors.push(`Class ${classId} not found`);
       }
     }
@@ -116,22 +119,24 @@ router.post('/bulk', verifyToken, (req, res) => {
 
     // Insert all students
     const createdStudents = [];
-    const insertStmt = db.prepare(`
-      INSERT INTO students (name, class_id, roll_number)
-      VALUES (?, ?, ?)
-    `);
 
     for (const { name, class_id, roll_number } of studentsData) {
-      const result = insertStmt.run(name, class_id, roll_number);
+      const insertResult = await query(`
+        INSERT INTO students (name, class_id, roll_number)
+        VALUES ($1, $2, $3)
+        RETURNING id
+      `, [name, class_id, roll_number]);
 
-      const student = db.prepare(`
+      const newId = insertResult.rows[0].id;
+
+      const studentResult = await query(`
         SELECT s.id, s.name, s.class_id, s.roll_number, c.name as class_name, c.section, c.grade
         FROM students s
         JOIN student_classes c ON s.class_id = c.id
-        WHERE s.id = ?
-      `).get(result.lastInsertRowid);
+        WHERE s.id = $1
+      `, [newId]);
 
-      createdStudents.push(student);
+      createdStudents.push(studentResult.rows[0]);
     }
 
     return res.status(201).json(createdStudents);
@@ -142,35 +147,36 @@ router.post('/bulk', verifyToken, (req, res) => {
 });
 
 // PUT /api/students/:id - Update student
-router.put('/:id', verifyToken, (req, res) => {
+router.put('/:id', verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { name, class_id, roll_number } = req.body;
 
-    const student = db.prepare('SELECT id FROM students WHERE id = ?').get(id);
+    const studentResult = await query('SELECT id FROM students WHERE id = $1', [id]);
 
-    if (!student) {
+    if (!studentResult.rows[0]) {
       return res.status(404).json({ error: 'Student not found' });
     }
 
     const updates = [];
     const values = [];
+    let paramIndex = 1;
 
     if (name !== undefined) {
-      updates.push('name = ?');
+      updates.push(`name = $${paramIndex++}`);
       values.push(name);
     }
     if (class_id !== undefined) {
       // Validate class_id exists
-      const classData = db.prepare('SELECT id FROM student_classes WHERE id = ?').get(class_id);
-      if (!classData) {
+      const classResult = await query('SELECT id FROM student_classes WHERE id = $1', [class_id]);
+      if (!classResult.rows[0]) {
         return res.status(400).json({ error: 'Class not found' });
       }
-      updates.push('class_id = ?');
+      updates.push(`class_id = $${paramIndex++}`);
       values.push(class_id);
     }
     if (roll_number !== undefined) {
-      updates.push('roll_number = ?');
+      updates.push(`roll_number = $${paramIndex++}`);
       values.push(roll_number);
     }
 
@@ -180,16 +186,16 @@ router.put('/:id', verifyToken, (req, res) => {
 
     values.push(id);
 
-    db.prepare(`UPDATE students SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+    await query(`UPDATE students SET ${updates.join(', ')} WHERE id = $${paramIndex}`, values);
 
-    const updatedStudent = db.prepare(`
+    const updatedResult = await query(`
       SELECT s.id, s.name, s.class_id, s.roll_number, c.name as class_name, c.section, c.grade
       FROM students s
       JOIN student_classes c ON s.class_id = c.id
-      WHERE s.id = ?
-    `).get(id);
+      WHERE s.id = $1
+    `, [id]);
 
-    return res.json(updatedStudent);
+    return res.json(updatedResult.rows[0]);
   } catch (error) {
     console.error('Update student error:', error);
     return res.status(500).json({ error: 'Failed to update student' });
@@ -197,31 +203,31 @@ router.put('/:id', verifyToken, (req, res) => {
 });
 
 // DELETE /api/students/:id - Delete student (only if no attendance/assessment records)
-router.delete('/:id', verifyToken, (req, res) => {
+router.delete('/:id', verifyToken, async (req, res) => {
   try {
     const { id } = req.params;
 
-    const student = db.prepare('SELECT id FROM students WHERE id = ?').get(id);
+    const studentResult = await query('SELECT id FROM students WHERE id = $1', [id]);
 
-    if (!student) {
+    if (!studentResult.rows[0]) {
       return res.status(404).json({ error: 'Student not found' });
     }
 
     // Check for attendance records
-    const attendanceCount = db.prepare('SELECT COUNT(*) as count FROM student_attendance WHERE student_id = ?').get(id);
+    const attendanceResult = await query('SELECT COUNT(*) as count FROM student_attendance WHERE student_id = $1', [id]);
 
-    if (attendanceCount.count > 0) {
+    if (attendanceResult.rows[0].count > 0) {
       return res.status(400).json({ error: 'Cannot delete student with attendance records' });
     }
 
     // Check for assessment records
-    const assessmentCount = db.prepare('SELECT COUNT(*) as count FROM assessments WHERE student_id = ?').get(id);
+    const assessmentResult = await query('SELECT COUNT(*) as count FROM assessments WHERE student_id = $1', [id]);
 
-    if (assessmentCount.count > 0) {
+    if (assessmentResult.rows[0].count > 0) {
       return res.status(400).json({ error: 'Cannot delete student with assessment records' });
     }
 
-    db.prepare('DELETE FROM students WHERE id = ?').run(id);
+    await query('DELETE FROM students WHERE id = $1', [id]);
 
     return res.json({ message: 'Student deleted successfully' });
   } catch (error) {

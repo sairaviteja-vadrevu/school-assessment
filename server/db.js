@@ -1,35 +1,24 @@
-import Database from 'better-sqlite3';
-import bcrypt from 'bcryptjs';
-import path from 'path';
-import fs from 'fs';
-import { fileURLToPath } from 'url';
+import "dotenv/config";
+import pg from "pg";
+import bcrypt from "bcryptjs";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const { Pool } = pg;
 
-const dbPath = path.join(__dirname, 'school.db');
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
 
-// If db file exists but is empty/corrupted, remove it so better-sqlite3 creates fresh
-try {
-  const stat = fs.statSync(dbPath);
-  if (stat.size === 0) {
-    fs.unlinkSync(dbPath);
-    console.log('Removed empty database file, will recreate...');
-  }
-} catch (e) {
-  // File doesn't exist yet — that's fine
+async function query(text, params) {
+  const result = await pool.query(text, params);
+  return result;
 }
 
-const db = new Database(dbPath);
-
-// Enable foreign keys
-db.pragma('foreign_keys = ON');
-
-function initializeDatabase() {
+async function initializeDatabase() {
   // Users table
-  db.exec(`
+  await query(`
     CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       email TEXT NOT NULL UNIQUE,
       password TEXT NOT NULL,
@@ -38,116 +27,103 @@ function initializeDatabase() {
       phone TEXT,
       classes TEXT,
       responsibilities TEXT,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Tasks table
-  db.exec(`
+  await query(`
     CREATE TABLE IF NOT EXISTS tasks (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,
       description TEXT,
-      assigned_to INTEGER NOT NULL,
-      assigned_by INTEGER NOT NULL,
-      deadline DATETIME,
+      assigned_to INTEGER NOT NULL REFERENCES users(id),
+      assigned_by INTEGER NOT NULL REFERENCES users(id),
+      deadline TIMESTAMP,
       status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'in_progress', 'completed')),
       priority TEXT NOT NULL DEFAULT 'medium' CHECK(priority IN ('low', 'medium', 'high')),
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY(assigned_to) REFERENCES users(id),
-      FOREIGN KEY(assigned_by) REFERENCES users(id)
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Announcements table
-  db.exec(`
+  await query(`
     CREATE TABLE IF NOT EXISTS announcements (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,
       content TEXT NOT NULL,
-      author_id INTEGER NOT NULL,
+      author_id INTEGER NOT NULL REFERENCES users(id),
       priority TEXT NOT NULL DEFAULT 'normal' CHECK(priority IN ('normal', 'urgent')),
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY(author_id) REFERENCES users(id)
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Collaboration rooms table
-  db.exec(`
+  await query(`
     CREATE TABLE IF NOT EXISTS collab_rooms (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       description TEXT,
       type TEXT NOT NULL CHECK(type IN ('department', 'academic', 'event', 'general')),
-      created_by INTEGER NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY(created_by) REFERENCES users(id)
+      created_by INTEGER NOT NULL REFERENCES users(id),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Collaboration messages table
-  db.exec(`
+  await query(`
     CREATE TABLE IF NOT EXISTS collab_messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      room_id INTEGER NOT NULL,
-      author_id INTEGER NOT NULL,
+      id SERIAL PRIMARY KEY,
+      room_id INTEGER NOT NULL REFERENCES collab_rooms(id),
+      author_id INTEGER NOT NULL REFERENCES users(id),
       content TEXT NOT NULL,
-      parent_id INTEGER,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY(room_id) REFERENCES collab_rooms(id),
-      FOREIGN KEY(author_id) REFERENCES users(id),
-      FOREIGN KEY(parent_id) REFERENCES collab_messages(id)
+      parent_id INTEGER REFERENCES collab_messages(id),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Collaboration room members table
-  db.exec(`
+  await query(`
     CREATE TABLE IF NOT EXISTS collab_room_members (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      room_id INTEGER NOT NULL,
-      user_id INTEGER NOT NULL,
-      joined_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY(room_id) REFERENCES collab_rooms(id) ON DELETE CASCADE,
-      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
+      id SERIAL PRIMARY KEY,
+      room_id INTEGER NOT NULL REFERENCES collab_rooms(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(room_id, user_id)
     )
   `);
 
   // Collaboration notifications table
-  db.exec(`
+  await query(`
     CREATE TABLE IF NOT EXISTS collab_notifications (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
-      room_id INTEGER NOT NULL,
-      message_id INTEGER NOT NULL,
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      room_id INTEGER NOT NULL REFERENCES collab_rooms(id) ON DELETE CASCADE,
+      message_id INTEGER NOT NULL REFERENCES collab_messages(id) ON DELETE CASCADE,
       is_read INTEGER NOT NULL DEFAULT 0,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
-      FOREIGN KEY(room_id) REFERENCES collab_rooms(id) ON DELETE CASCADE,
-      FOREIGN KEY(message_id) REFERENCES collab_messages(id) ON DELETE CASCADE
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
   // Teacher attendance table
-  db.exec(`
+  await query(`
     CREATE TABLE IF NOT EXISTS teacher_attendance (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      user_id INTEGER NOT NULL,
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER NOT NULL REFERENCES users(id),
       date DATE NOT NULL,
-      check_in DATETIME,
-      check_out DATETIME,
+      check_in TIMESTAMP,
+      check_out TIMESTAMP,
       status TEXT NOT NULL CHECK(status IN ('present', 'absent', 'late')),
       location TEXT,
-      FOREIGN KEY(user_id) REFERENCES users(id),
       UNIQUE(user_id, date)
     )
   `);
 
   // Student classes table
-  db.exec(`
+  await query(`
     CREATE TABLE IF NOT EXISTS student_classes (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
       section TEXT NOT NULL,
       grade INTEGER NOT NULL
@@ -155,122 +131,119 @@ function initializeDatabase() {
   `);
 
   // Students table
-  db.exec(`
+  await query(`
     CREATE TABLE IF NOT EXISTS students (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       name TEXT NOT NULL,
-      class_id INTEGER NOT NULL,
-      roll_number INTEGER NOT NULL,
-      FOREIGN KEY(class_id) REFERENCES student_classes(id)
+      class_id INTEGER NOT NULL REFERENCES student_classes(id),
+      roll_number INTEGER NOT NULL
     )
   `);
 
   // Student attendance table
-  db.exec(`
+  await query(`
     CREATE TABLE IF NOT EXISTS student_attendance (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      student_id INTEGER NOT NULL,
-      class_id INTEGER NOT NULL,
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER NOT NULL REFERENCES students(id),
+      class_id INTEGER NOT NULL REFERENCES student_classes(id),
       date DATE NOT NULL,
       status TEXT NOT NULL CHECK(status IN ('present', 'absent', 'late')),
-      marked_by INTEGER NOT NULL,
-      FOREIGN KEY(student_id) REFERENCES students(id),
-      FOREIGN KEY(class_id) REFERENCES student_classes(id),
-      FOREIGN KEY(marked_by) REFERENCES users(id),
+      marked_by INTEGER NOT NULL REFERENCES users(id),
       UNIQUE(student_id, date)
     )
   `);
 
   // Assessments table
-  db.exec(`
+  await query(`
     CREATE TABLE IF NOT EXISTS assessments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      student_id INTEGER NOT NULL,
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER NOT NULL REFERENCES students(id),
       subject TEXT NOT NULL,
       marks REAL NOT NULL,
       total_marks REAL NOT NULL,
       grade TEXT,
       exam_type TEXT NOT NULL,
       date DATE NOT NULL,
-      entered_by INTEGER NOT NULL,
-      FOREIGN KEY(student_id) REFERENCES students(id),
-      FOREIGN KEY(entered_by) REFERENCES users(id)
+      entered_by INTEGER NOT NULL REFERENCES users(id)
     )
   `);
 
   // Campaigns table
-  db.exec(`
+  await query(`
     CREATE TABLE IF NOT EXISTS campaigns (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       title TEXT NOT NULL,
       description TEXT,
-      assigned_to INTEGER,
+      assigned_to INTEGER REFERENCES users(id),
       location TEXT,
       visit_date DATE,
       notes TEXT,
       status TEXT NOT NULL DEFAULT 'planned' CHECK(status IN ('planned', 'in_progress', 'completed')),
-      created_by INTEGER NOT NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY(assigned_to) REFERENCES users(id),
-      FOREIGN KEY(created_by) REFERENCES users(id)
+      created_by INTEGER NOT NULL REFERENCES users(id),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      live_lat REAL,
+      live_lng REAL,
+      live_updated_at TIMESTAMP
     )
   `);
-}
-
-function runMigrations() {
-  // Add live location columns to campaigns if they don't exist
-  const campaignCols = db.prepare("PRAGMA table_info(campaigns)").all().map(c => c.name);
-  if (!campaignCols.includes('live_lat')) {
-    db.exec('ALTER TABLE campaigns ADD COLUMN live_lat REAL');
-    db.exec('ALTER TABLE campaigns ADD COLUMN live_lng REAL');
-    db.exec('ALTER TABLE campaigns ADD COLUMN live_updated_at DATETIME');
-    console.log('Added live location columns to campaigns');
-  }
 
   // Campaign location logs table
-  db.exec(`
+  await query(`
     CREATE TABLE IF NOT EXISTS campaign_location_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      campaign_id INTEGER NOT NULL,
+      id SERIAL PRIMARY KEY,
+      campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
       lat REAL NOT NULL,
       lng REAL NOT NULL,
       place_name TEXT,
-      logged_at TEXT NOT NULL,
-      FOREIGN KEY(campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE
+      logged_at TEXT NOT NULL
     )
   `);
+
+  console.log("Database tables initialized");
 }
 
-function seedDatabase() {
-  // Check if data already exists
-  const userCount = db.prepare('SELECT COUNT(*) as count FROM users').get();
-  if (userCount.count > 0) {
-    console.log('Database already has users, skipping seed...');
+async function seedDatabase() {
+  const { rows } = await query("SELECT COUNT(*) as count FROM users");
+  if (parseInt(rows[0].count) > 0) {
+    console.log("Database already has users, skipping seed...");
     return;
   }
 
-  // Insert default admin account
-  const adminPassword = bcrypt.hashSync('admin123', 10);
-  db.prepare(`
-    INSERT INTO users (name, email, password, role, phone, responsibilities)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `).run('Admin', 'admin@school.com', adminPassword, 'admin', '', 'School Administration');
+  console.log("Seeding database...");
+  const adminPassword = bcrypt.hashSync("admin123", 10);
+  const teacherPassword = bcrypt.hashSync("teacher123", 10);
 
-  console.log('Database seeded with default admin account (admin@school.com / admin123)');
+  await query("INSERT INTO users (name, email, password, role, subject, phone, classes) VALUES ($1, $2, $3, $4, $5, $6, $7)", [
+    "Admin",
+    "admin@school.com",
+    adminPassword,
+    "admin",
+    null,
+    null,
+    null,
+  ]);
+  await query("INSERT INTO users (name, email, password, role, subject, phone, classes) VALUES ($1, $2, $3, $4, $5, $6, $7)", [
+    "Teacher One",
+    "teacher1@school.com",
+    teacherPassword,
+    "teacher",
+    "Mathematics",
+    "555-0101",
+    "10A, 10B",
+  ]);
+
+  console.log("Database seeded successfully");
 }
 
-function getDatabase() {
-  return db;
-}
+// Initialize on load
+(async () => {
+  try {
+    await initializeDatabase();
+    await seedDatabase();
+  } catch (error) {
+    console.error("Database initialization error:", error);
+  }
+})();
 
-// Initialize, migrate, and seed on load
-initializeDatabase();
-runMigrations();
-seedDatabase();
-
-export default db;
-export {
-  getDatabase,
-  initializeDatabase,
-  seedDatabase
-};
+export default { query };
+export { query, pool };
